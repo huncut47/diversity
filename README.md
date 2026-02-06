@@ -1,4 +1,6 @@
-## Running with Docker
+## Diversity: MiniTwit
+
+## Building and Running the Docker Container
 
 First build the image:
 
