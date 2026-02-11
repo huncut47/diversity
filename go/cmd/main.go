@@ -131,7 +131,7 @@ func getUserId(username string) (int, error) {
 }
 
 func getUserById(userID int) (*User, error) {
-	u := &User{}
+	var u *User
 	err := db.QueryRow("select user_id, username, email, pw_hash from user where user_id = ?", userID).Scan(&u.UserID, &u.Username, &u.Email, &u.PwHash)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -140,7 +140,7 @@ func getUserById(userID int) (*User, error) {
 }
 
 func getUserByUsername(username string) (*User, error) {
-	u := &User{}
+	var u *User
 	err := db.QueryRow("select user_id, username, email, pw_hash from user where username = ?", username).Scan(&u.UserID, &u.Username, &u.Email, &u.PwHash)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -150,6 +150,9 @@ func getUserByUsername(username string) (*User, error) {
 
 func getSessionUserID(r *http.Request) int {
 	session, _ := store.Get(r, "session")
+
+	log.Printf("getSessionUserID: session.Values = %#v", session.Values)
+
 	userID, ok := session.Values["user_id"].(int)
 	if !ok {
 		return 0
@@ -203,12 +206,11 @@ func scanMessages(rows *sql.Rows) ([]Message, error) {
 
 func getPublicMessages(limit int) ([]Message, error) {
 	rows, err := db.Query(`
-	select message.message_id, message.author_id, message.text,
-  message.pub_date, message.flagged,
-			user.username, user.email
-	from message, user
-	where message.flagged = 0 and message.author_id = user.user_id
-	order by message.pub_date desc limit ?`, limit)
+		select message.message_id, message.author_id, message.text,
+			message.pub_date, message.flagged, user.username, user.email
+		from message, user
+		where message.flagged = 0 and message.author_id = user.user_id
+		order by message.pub_date desc limit ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -217,27 +219,28 @@ func getPublicMessages(limit int) ([]Message, error) {
 }
 
 func getTimelineMessages(userID int, limit int) ([]Message, error) {
-    rows, err := db.Query(`
-	select message.message_id, message.author_id, message.text,
-                 message.pub_date, message.flagged, user.username, user.email
-          from message, user
-          where message.flagged = 0 and message.author_id = user.user_id and (
-              user.user_id = ? or
-              user.user_id in (select whom_id from follower where who_id = ?))
-          order by message.pub_date desc limit ?`, userID, userID, limit)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    return scanMessages(rows)
+	rows, err := db.Query(`
+		select message.message_id, message.author_id, message.text,
+			message.pub_date, message.flagged, user.username, user.email
+		from message, user
+		where message.flagged = 0 and message.author_id = user.user_id and (
+			user.user_id = ? or
+			user.user_id in (select whom_id from follower where who_id = ?))
+		order by message.pub_date desc limit ?`, userID, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMessages(rows)
 }
 
 func getUserMessages(userID int, limit int) ([]Message, error) {
-    rows, err := db.Query(`select message.message_id, message.author_id, message.text, message.pub_date, message.flagged,
-                       user.username, user.email
-                from message, user
-                where user.user_id = message.author_id and user.user_id = ?
-                order by message.pub_date desc limit ?`, userID, limit)
+	rows, err := db.Query(`
+		select message.message_id, message.author_id, message.text, message.pub_date, message.flagged,
+			user.username, user.email
+		from message, user
+		where user.user_id = message.author_id and user.user_id = ?
+		order by message.pub_date desc limit ?`, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +250,7 @@ func getUserMessages(userID int, limit int) ([]Message, error) {
 
 type TimelinePageData struct {
 	Messages []Message
-	User     User
+	User     *User
 }
 
 func insertMessage(authorID int, text string) error {
@@ -267,7 +270,7 @@ func addFollower(whoID int, whomID int) error {
 	return err
 }
 
-func removeFolower(whoID int, whomID int) error {
+func removeFollower(whoID int, whomID int) error {
 	_, err := db.Exec(`delete from follower where who_id=? and whom_id=?`, whoID, whomID)
 	return err
 }
@@ -287,7 +290,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.ExecuteTemplate(w, "layout", TimelinePageData{
 		Messages: messages,
-		User:     r.Context().Value("user").(User),
+		User:     r.Context().Value("user").(*User),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -297,7 +300,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 
 type PublicTimelinePageData struct {
 	Messages []Message
-	User     User
+	User     *User
 	Endpoint string
 }
 
@@ -308,9 +311,9 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := User{}
+	var user *User
 	if r.Context().Value("user") != nil {
-		user = r.Context().Value("user").(User)
+		user = r.Context().Value("user").(*User)
 	}
 
 	err = tmpl.ExecuteTemplate(w, "layout", PublicTimelinePageData{
@@ -327,7 +330,7 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 type UserTimelinePageData struct {
 	Messages []Message
 	Endpoint string
-	User     User
+	User     *User
 }
 
 func userTimeline(w http.ResponseWriter, r *http.Request) {
@@ -348,18 +351,8 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 	err = tmpl.ExecuteTemplate(w, "layout", UserTimelinePageData{
 		Messages: messages,
 		Endpoint: username,
-		User:     r.Context().Value("user").(User),
+		User:     r.Context().Value("user").(*User),
 	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// err = renderTemplate(w, r, "timeline.html", map[string]interface{}{
-	// 	"messages":    messages,
-	// 	"followed":    followed,
-	// 	"profileUser": profileUser,
-	// })
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -384,11 +377,11 @@ func followUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// _, err = queryDb(`insert into follower (who_id, whom_id) values (?, ?)`, getSessionUserID(r), whomID)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
+	err = addFollower(getSessionUserID(r), whomID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	http.Redirect(w, r, fmt.Sprintf("/%s", username), http.StatusFound)
 }
@@ -411,12 +404,11 @@ func unfollowUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// _, err = queryDb(`delete from follower where who_id = ? and whom_id = ?`, getSessionUserID(r), whomID)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-
+	err = removeFollower(getSessionUserID(r), whomID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, fmt.Sprintf("/%s", username), http.StatusFound)
 }
 
@@ -426,21 +418,21 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// text := r.FormValue("text")
-	// if text != "" {
-	// 	_, err := queryDb(`insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)`, getSessionUserID(r), text, time.Now().Unix())
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// }
+	text := r.FormValue("text")
+	if text != "" {
+		err := insertMessage(getSessionUserID(r), text)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 type LoginPageData struct {
 	Username string
-	User     User
+	User     *User
 	Error    string
 }
 
@@ -450,9 +442,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user User
+	var user *User
 	if u := r.Context().Value("user"); u != nil {
-		user = u.(User)
+		user = u.(*User)
 	}
 	data := LoginPageData{
 		User: user,
@@ -492,7 +484,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 type RegisterPageData struct {
 	Username string
 	Email    string
-	User     User
+	User     *User
 	Error    string
 }
 
@@ -506,59 +498,66 @@ func register(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		email := r.FormValue("email")
 		password := r.FormValue("password")
+		password2 := r.FormValue("password2")
 
-		// if username == "" {
-		// 	err := renderTemplate(w, r, "register.html", map[string]interface{}{
-		// 		"error": "You have to enter a username",
-		// 	})
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	}
-		// 	return
-		// }
-		// if email == "" || !strings.Contains(email, "@") {
-		// 	err := renderTemplate(w, r, "register.html", map[string]interface{}{
-		// 		"error": "You have to enter a valid email address",
-		// 	})
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	}
-		// 	return
-		// }
-		// if password == "" {
-		// 	err := renderTemplate(w, r, "register.html", map[string]interface{}{
-		// 		"error": "You have to enter a password",
-		// 	})
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	}
-		// 	return
-		// }
-		// if password != password2 {
-		// 	err := renderTemplate(w, r, "register.html", map[string]interface{}{
-		// 		"error": "The two passwords do not match",
-		// 	})
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	}
-		// 	return
-		// }
-		// existingUser, err := getUserByUsername(username)
-		// if err != nil {
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
-		// if existingUser != nil {
-		// 	err := renderTemplate(w, r, "register.html", map[string]interface{}{
-		// 		"error": "The username is already taken",
-		// 	})
-		// 	if err != nil {
-		// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	}
-		// 	return
-		// }
+		if username == "" {
+			data := RegisterPageData{
+				Error: "You have to enter a username",
+			}
+			err := tmpl.ExecuteTemplate(w, "layout", data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if email == "" || !strings.Contains(email, "@") {
+			data := RegisterPageData{
+				Error: "You have to enter a valid email address",
+			}
+			err := tmpl.ExecuteTemplate(w, "layout", data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if password == "" {
+			data := RegisterPageData{
+				Error: "You have to enter a password",
+			}
+			err := tmpl.ExecuteTemplate(w, "layout", data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if password != password2 {
+			data := RegisterPageData{
+				Error: "The two passwords do not match",
+			}
+			err := tmpl.ExecuteTemplate(w, "layout", data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
 
-		_, err := db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", username, email, fmt.Sprintf("%x", md5.Sum([]byte(password))))
+		existingUser, err := getUserByUsername(username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if existingUser != nil {
+			data := RegisterPageData{
+				Error: "The username is already taken",
+			}
+			err := tmpl.ExecuteTemplate(w, "layout", data)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
+		err = addUser(username, email, fmt.Sprintf("%x", md5.Sum([]byte(password))))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -568,19 +567,20 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := tmpl.ExecuteTemplate(w, "layout", RegisterPageData{
-		User: r.Context().Value("user").(User),
-	})
+	var user *User
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(*User)
+	}
+
+	data := RegisterPageData{
+		User: user,
+	}
+
+	err := tmpl.ExecuteTemplate(w, "layout", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// err := renderTemplate(w, r, "register.html", nil)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
