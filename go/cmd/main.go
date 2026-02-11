@@ -192,7 +192,7 @@ func scanMessages(rows *sql.Rows) ([]Message, error) {
 	var messages []Message
 	for rows.Next() {
 		var m Message
-		err := rows.Scan(&m.MessageId, &m.AuthorId, &m.Text, &m.PubDate, &m.Username, &m.Email)
+		err := rows.Scan(&m.MessageId, &m.AuthorId, &m.Text, &m.PubDate, &m.Flagged, &m.Username, &m.Email)
 		if err != nil {
 			return nil, err
 		}
@@ -217,14 +217,27 @@ func getPublicMessages(limit int) ([]Message, error) {
 }
 
 func getTimelineMessages(userID int, limit int) ([]Message, error) {
-	rows, err := db.Query(`select message.message_id, message.author_id, message.text,
-  message.pub_date, message.flagged,
+    rows, err := db.Query(`
+	select message.message_id, message.author_id, message.text,
+                 message.pub_date, message.flagged, user.username, user.email
+          from message, user
+          where message.flagged = 0 and message.author_id = user.user_id and (
+              user.user_id = ? or
+              user.user_id in (select whom_id from follower where who_id = ?))
+          order by message.pub_date desc limit ?`, userID, userID, limit)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    return scanMessages(rows)
+}
+
+func getUserMessages(userID int, limit int) ([]Message, error) {
+    rows, err := db.Query(`select message.message_id, message.author_id, message.text, message.pub_date, message.flagged,
                        user.username, user.email
                 from message, user
-                where message.flagged = 0 and message.author_id = user.user_id
-                        user.user_id = ? or
-                        user.user_id in (select whom_id from follower where wh
-                order by message.pub_date desc limit ?`, userID, userID, limit)
+                where user.user_id = message.author_id and user.user_id = ?
+                order by message.pub_date desc limit ?`, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +248,28 @@ func getTimelineMessages(userID int, limit int) ([]Message, error) {
 type TimelinePageData struct {
 	Messages []Message
 	User     User
+}
+
+func insertMessage(authorID int, text string) error {
+	_, err := db.Exec(`insert into message (author_id, text, pub_date, flagged)
+            values (?, ?, ?, 0)`, authorID, text, time.Now().Unix())
+	return err
+}
+
+func addUser(username string, email string, pwHash string) error {
+	_, err := db.Exec(`insert into user (
+                username, email, pw_hash) values (?, ?, ?)`, username, email, pwHash)
+	return err
+}
+
+func addFollower(whoID int, whomID int) error {
+	_, err := db.Exec(`insert into follower (who_id, whom_id) values (?, ?)`, whoID, whomID)
+	return err
+}
+
+func removeFolower(whoID int, whomID int) error {
+	_, err := db.Exec(`delete from follower where who_id=? and whom_id=?`, whoID, whomID)
+	return err
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
