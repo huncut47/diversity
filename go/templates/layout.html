@@ -1,11 +1,31 @@
 {{ define "layout" }}
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ template "title" . }}</title>
-</head>
-<body>
-    {{ template .Page . }}
-</body>
-</html>
+<!doctype html>
+<title>{{template "title"}}| MiniTwit</title>
+<link rel="stylesheet" type="text/css" href="/static/style.css">
+
+<div class="page">
+  <h1>MiniTwit</h1>
+
+  <div class="navigation">
+    {{ if .User }}
+      <a href="/timeline">my timeline</a> |
+      <a href="/public">public timeline</a> |
+      <a href="/logout">sign out [{{ .User.Username }}]</a>
+    {{ else }}
+      <a href="/public">public timeline</a> |
+      <a href="/register">sign up</a> |
+      <a href="/login">sign in</a>
+    {{ end }}
+  </div>
+
+ 
+
+  <div class="body">
+    {{ block "body" . }}{{ end }}
+  </div>
+
+  <div class="footer">
+    MiniTwit &mdash; A GoLang Application
+  </div>
+</div>
 {{ end }}

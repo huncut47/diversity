@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -93,6 +94,7 @@ func main() {
 	fs := http.FileServer(http.Dir("./static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
 
+	slog.Info("Starting server on :3000")
 	http.ListenAndServe(":3000", r)
 }
 
@@ -230,6 +232,11 @@ func getTimelineMessages(userID int, limit int) ([]Message, error) {
 	return scanMessages(rows)
 }
 
+type TimelinePageData struct {
+	Messages []Message
+	User     User
+}
+
 func timeline(w http.ResponseWriter, r *http.Request) {
 	if r.Context().Value("user") == nil {
 		http.Redirect(w, r, "/public", http.StatusFound)
@@ -243,11 +250,20 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(messages)
+	err = tmpl.ExecuteTemplate(w, "layout", TimelinePageData{
+		Messages: messages,
+		User:     r.Context().Value("user").(User),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+type PublicTimelinePageData struct {
+	Messages []Message
+	User     User
+	Endpoint string
 }
 
 func publicTimeline(w http.ResponseWriter, r *http.Request) {
@@ -257,11 +273,26 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(messages)
+	user := User{}
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(User)
+	}
+
+	err = tmpl.ExecuteTemplate(w, "layout", PublicTimelinePageData{
+		Messages: messages,
+		User:     user,
+		Endpoint: "public",
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+type UserTimelinePageData struct {
+	Messages []Message
+	Endpoint string
+	User     User
 }
 
 func userTimeline(w http.ResponseWriter, r *http.Request) {
@@ -278,8 +309,12 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	messages, err := getTimelineMessages(profileUser.UserID, 100)
-	fmt.Println(messages)
 
+	err = tmpl.ExecuteTemplate(w, "layout", UserTimelinePageData{
+		Messages: messages,
+		Endpoint: username,
+		User:     r.Context().Value("user").(User),
+	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -370,45 +405,60 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 
 type LoginPageData struct {
 	Username string
+	User     User
 	Error    string
-	Page     string
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	data := LoginPageData{Page: "login"}
+	if r.Context().Value("user") != nil {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
 
-	// if r.Method == http.MethodPost {
+	var user User
+	if u := r.Context().Value("user"); u != nil {
+		user = u.(User)
+	}
+	data := LoginPageData{
+		User: user,
+	}
 
-	// 	username := r.FormValue("username")
-	// 	password := r.FormValue("password")
+	if r.Method == http.MethodPost {
+		username := r.FormValue("username")
+		password := r.FormValue("password")
 
-	// 	user, err := getUserByUsername(username)
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
+		user, err := getUserByUsername(username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	// if user == nil || user.PwHash != fmt.Sprintf("%x", md5.Sum([]byte(password))) {
-	// 	err = renderTemplate(w, r, "login.html", map[string]interface{}{
-	// 		"error": "Invalid username or password",
-	// 	})
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	}
-	// 	return
-	// }
-	// else {
-	// 	setSessionUserID(w, r, user.UserID)
-	// 	http.Redirect(w, r, "/", http.StatusFound)
-	// 	return
-	// }
-	// }
+		if user == nil || user.PwHash != fmt.Sprintf("%x", md5.Sum([]byte(password))) {
+			data.Error = "Invalid username or password"
+			data.Username = username
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		} else {
+			setSessionUserID(w, r, user.UserID)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+	}
 
 	err := tmpl.ExecuteTemplate(w, "layout", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+type RegisterPageData struct {
+	Username string
+	Email    string
+	User     User
+	Error    string
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -480,6 +530,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	err := tmpl.ExecuteTemplate(w, "layout", RegisterPageData{
+		User: r.Context().Value("user").(User),
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
