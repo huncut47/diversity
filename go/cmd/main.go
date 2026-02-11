@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -21,28 +22,77 @@ const DATABASE = "./minitwit.db"
 
 var db *sql.DB
 
+var tmpl *template.Template
+
 var store = sessions.NewCookieStore([]byte("dev_key"))
 
 type User struct {
-	UserID int
+	UserID   int
+	Username string
+	Email    string
+	PwHash   string
+}
+
+type Follower struct {
+	WhoId  int
+	WhomId int
+}
+
+type Message struct {
+	MessageId int
+	AuthorId  int
+	Text      string
+	PubDate   int
+	Flagged   int
 	Username string
 	Email string
-	PwHash string
 }
 
 func main() {
 	var err error
 	db, err = connectDb()
 	if err != nil {
-        log.Fatal(err)
-    }
+		log.Fatal(err)
+	}
 	defer db.Close()
+
+	err = initDb()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Parse all the HTML templates in the "templates" directory
+	tmpl = template.Must(template.ParseGlob("templates/*.html"))
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
-	})
+	r.Use(middleware.Recoverer)
+	r.Use(authMiddleware)
+	// r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// 	w.Write([]byte("welcome"))
+	// })
+
+	r.Get("/", timeline)
+	r.Get("/public", publicTimeline)
+
+	r.Get("/login", login)
+	r.Post("/login", login)
+
+	r.Get("/register", register)
+	r.Post("/register", register)
+
+	r.Get("/logout", logout)
+
+	r.Post("/add_message", addMessage)
+
+	r.Get("/{username}/follow", followUser)
+	r.Get("/{username}/unfollow", unfollowUser)
+	r.Get("/{username}", userTimeline)
+
+	// Handle the static files directory
+	fs := http.FileServer(http.Dir("./static"))
+	r.Handle("/static/*", http.StripPrefix("/static/", fs))
+
 	http.ListenAndServe(":3000", r)
 }
 
@@ -69,7 +119,7 @@ func gravatarUrl(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%x?d=identicon&s=%d", hash, size)
 }
 
-func getUserId(username string) (int, error){
+func getUserId(username string) (int, error) {
 	var id int
 	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
 	if err == sql.ErrNoRows {
@@ -84,7 +134,7 @@ func getUserById(userID int) (*User, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return u ,err
+	return u, err
 }
 
 func getUserByUsername(username string) (*User, error) {
@@ -93,7 +143,7 @@ func getUserByUsername(username string) (*User, error) {
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return u ,err
+	return u, err
 }
 
 func getSessionUserID(r *http.Request) int {
@@ -116,9 +166,9 @@ func setSessionUserID(w http.ResponseWriter, r *http.Request, userID int) {
 
 	err = session.Save(r, w)
 	if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func authMiddleware(next http.Handler) http.Handler {
@@ -134,4 +184,330 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func scanMessages(rows *sql.Rows) ([]Message, error) {
+	var messages []Message
+	for rows.Next() {
+		var m Message
+		err := rows.Scan(&m.MessageId, &m.AuthorId, &m.Text, &m.PubDate, &m.Username, &m.Email)
+		if err != nil {
+			return  nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, rows.Err()
+}
+
+func getPublicMessages(limit int) ([]Message, error) {
+	rows, err := db.Query(`
+	select message.message_id, message.author_id, message.text,
+  message.pub_date, message.flagged,
+			user.username, user.email
+	from message, user
+	where message.flagged = 0 and message.author_id = user.user_id
+	order by message.pub_date desc limit ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanMessages(rows)
+}
+
+func getTimelineMessages(UserID int, limit int) ([]Message, error) {
+    rows, err := db.Query(`select message.message_id, message.author_id, message.text,
+  message.pub_date, message.flagged,
+                       user.username, user.email
+                from message, user
+                where message.flagged = 0 and message.author_id = user.user_id
+                        user.user_id = ? or
+                        user.user_id in (select whom_id from follower where wh
+                order by message.pub_date desc limit ?`, userID, userID, limit)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    return scanMessages(rows)
+}
+
+func timeline(w http.ResponseWriter, r *http.Request) {
+	if r.Context().Value("user") == nil {
+		http.Redirect(w, r, "/public", http.StatusFound)
+		return
+	}
+	offset := r.URL.Query().Get("offset")
+
+	messages, err := getTimelineMessages(getSessionUserID(r), 100)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// ? here
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func publicTimeline(w http.ResponseWriter, r *http.Request) {
+	offset := r.URL.Query().Get("offset")
+
+	messages, err := getPublicMessages(100)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// ? here
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func userTimeline(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	profileUser, err := getUserByUsername(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if profileUser == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	messages, err := getTimelineMessages(profileUser.UserID, 100)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = renderTemplate(w, r, "timeline.html", map[string]interface{}{
+		"messages":    messages,
+		"followed":    followed,
+		"profileUser": profileUser,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func followUser(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	if r.Context().Value("user") == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	whomID, err := getUserId(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if whomID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	_, err = queryDb(`insert into follower (who_id, whom_id) values (?, ?)`, getSessionUserID(r), whomID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/%s", username), http.StatusFound)
+}
+
+func unfollowUser(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+
+	if r.Context().Value("user") == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	whomID, err := getUserId(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if whomID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	_, err = queryDb(`delete from follower where who_id = ? and whom_id = ?`, getSessionUserID(r), whomID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/%s", username), http.StatusFound)
+}
+
+func addMessage(w http.ResponseWriter, r *http.Request) {
+	if r.Context().Value("user") == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	text := r.FormValue("text")
+	if text != "" {
+		_, err := queryDb(`insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)`, getSessionUserID(r), text, time.Now().Unix())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+type LoginPageData struct {
+	Username string
+	Error string
+	Page string
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+		data := LoginPageData{}
+
+
+			http.Redirect(w, r, "/", http.StatusFound)
+	}
+
+	if r.Method == http.MethodPost {
+
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+
+		user, err := getUserByUsername(username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if user == nil || user.PwHash != fmt.Sprintf("%x", md5.Sum([]byte(password))) {
+			err = renderTemplate(w, r, "login.html", map[string]interface{}{
+				"error": "Invalid username or password",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+			return
+
+ e;sle  		setSessionUserID(w, r, user.UserID)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	err := tmpl.ExecuteTemplate(w, "layout", data)
+	if err != nil {
+data		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+	if r.Context().Value("user") != nil {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		username := r.FormValue("username")
+		email := r.FormValue("email")
+		password := r.FormValue("password")
+		password2 := r.FormValue("password2")
+
+		if username == "" {
+			err := renderTemplate(w, r, "register.html", map[string]interface{}{
+				"error": "You have to enter a username",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if email == "" || !strings.Contains(email, "@") {
+			err := renderTemplate(w, r, "register.html", map[string]interface{}{
+				"error": "You have to enter a valid email address",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if password == "" {
+			err := renderTemplate(w, r, "register.html", map[string]interface{}{
+				"error": "You have to enter a password",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		if password != password2 {
+			err := renderTemplate(w, r, "register.html", map[string]interface{}{
+				"error": "The two passwords do not match",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+		existingUser, err := getUserByUsername(username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if existingUser != nil {
+			err := renderTemplate(w, r, "register.html", map[string]interface{}{
+				"error": "The username is already taken",
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
+		}
+
+		_, err = db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", username, email, fmt.Sprintf("%x", md5.Sum([]byte(password))))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	err := renderTemplate(w, r, "register.html", nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	delete(session.Values, "user_id")
+
+	err = session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/public", http.StatusFound)
 }
