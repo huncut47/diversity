@@ -7,4 +7,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
+	github.com/stretchr/testify/suite v1.11.1 // indirect
+	github.com/stretchr/testify/assert v1.11.1 // indirect
+
 )
