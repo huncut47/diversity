@@ -5,4 +5,13 @@ venv/
 .DS_Store
 flag_tool
 
-./cmd/main
+go/cmd/main
+go/tmp
+
+# Anything idea or viscode
+
+.idea/
+.vscode/
+
+go/.vscode/
+go/.idea/

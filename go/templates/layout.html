@@ -8,7 +8,7 @@
 
   <div class="navigation">
     {{ if .User }}
-      <a href="/timeline">my timeline</a> |
+      <a href="/">my timeline</a> |
       <a href="/public">public timeline</a> |
       <a href="/logout">sign out [{{ .User.Username }}]</a>
     {{ else }}
@@ -21,7 +21,7 @@
  
 
   <div class="body">
-    {{ block "body" . }}{{ end }}
+    {{ template "body" . }}
   </div>
 
   <div class="footer">

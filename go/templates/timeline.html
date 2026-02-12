@@ -18,18 +18,18 @@
     {{ if eq .Endpoint "user_timeline" }}
         <div class="followstatus">
 
-        {{ if eq .User.ID .ProfileUser.ID }}
+        {{ if eq .User.UserID .ProfileUser.UserID }}
             This is you!
 
-        {{ else if .Followed }}
+        {{ else if .Following }}
             You are currently following this user.
-            <a class="unfollow" href="/unfollow/{{ .ProfileUser.Username }}">
+            <a class="unfollow" href="{{ .ProfileUser.Username }}/unfollow">
                 Unfollow user
             </a>
 
         {{ else }}
             You are not yet following this user.
-            <a class="follow" href="/follow/{{ .ProfileUser.Username }}">
+            <a class="follow" href="{{ .ProfileUser.Username }}/follow">
                 Follow user
             </a>
         {{ end }}
@@ -39,7 +39,7 @@
     {{ else if eq .Endpoint "timeline" }}
         <div class="twitbox">
             <h3>What's on your mind {{ .User.Username }}?</h3>
-            <form action="/message" method="post">
+            <form action="/add_message" method="post">
                 <input type="text" name="text" size="60">
                 <input type="submit" value="Share">
             </form>
@@ -53,19 +53,16 @@
 
 {{ if .Messages }}
     {{ range .Messages }}
-        <li>
-            <img src="{{ .GravatarURL }}">
-            <p>
-            <strong>
-                <a href="/user/{{ .Username }}">
-                    {{ .Username }}
-                </a>
-            </strong>
+    <li>
+        <img src="{{ gravatar .Email 48 }}" alt="{{ .Username }}'s avatar">
+        <p>
+            <strong><a href="/{{ .Username }}">{{ .Username }}</a></strong>
             {{ .Text }}
-            <small>&mdash; {{ .FormattedDate }}</small>
-        </li>
+            <small>&mdash; {{ datetime .PubDate }}</small>
+        </p>
+    </li>
     {{ end }}
-{{ else }}
+    {{ else }}
     <li><em>There's no message so far.</em></li>
 {{ end }}
 
