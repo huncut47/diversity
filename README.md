@@ -1,5 +1,7 @@
 ## Diversity: MiniTwit
 
+This app was refactored to a golang application.
+
 ## Building and Running the Docker Container
 
 First build the image:
