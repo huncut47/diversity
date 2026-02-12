@@ -19,6 +19,7 @@ class MiniTwitTestCase(unittest.TestCase):
         """Before each test, set up a blank database"""
         self.db = tempfile.NamedTemporaryFile()
         self.app = minitwit.app.test_client()
+        self.base_url = "http://localhost:3000"
         minitwit.DATABASE = self.db.name
         minitwit.init_db()
 
