@@ -364,3 +364,20 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(followersJSON)
 }
+
+func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
+}
+func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
+}
+func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
+}

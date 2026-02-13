@@ -32,6 +32,14 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}", app.UserTimelineHandler)
 	// API
 	r.Get("/fllws/{username})", app.FollowersHandler)
+	r.Post("/fllws/{username})", app.FollowUserAPIHandler)
+
+	r.Get("/latest", app.LatestOperationHandler)
+	r.Get("/msgs", app.GetMessagesHandler)
+	r.Get("/msgs/{username}", app.GetUserMessagesHandler)
+
+	r.Post("/msgs/{username}", app.PostUserMessageHandler)
+	r.Post("/register", app.RegisterAPIHandler)
 
 	r.Handle("/static/*", staicFileServer())
 
