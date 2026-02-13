@@ -64,3 +64,11 @@ func (app *App) authMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func (app *App) latestMiddleware(next http.Handler) http.Handler {
+	return next
+}
+
+func (app *App) authorizationMiddleware(next http.Handler) http.Handler {
+	return next
+}
