@@ -139,27 +139,27 @@ func (suite *MinitwitTestSuite) add_message(text string) *httptest.ResponseRecor
 }
 
 func (suite *MinitwitTestSuite) Test_register() {
-	suite.T().Run("Succesful user registration", func() {
+	suite.Run("Succesful user registration", func() {
 		rv := suite.register("user1", "default", nil, nil)
-		assert.Contains(rv, "You were successfully registered and can login now")
+		assert.Equal(Contains(rv, "You were successfully registered and can login now"), true)
 	})
-	suite.T().Run("Can't register user if username is taken", func() {
+	suite.T().Run("Can't register user if username is taken", func(t *testing.T) {
 		rv := suite.register("user1", "default", nil, nil)
 		assert.Contains(rv, "The username is already taken")
 	})
-	suite.T().Run("Can't register without username", func() {
+	suite.T().Run("Can't register without username", func(t *testing.T) {
 		rv := suite.register("", "default", nil, nil)
 		assert.Contains(rv, "You have to enter a username")
 	})
-	suite.T().Run("Can't register without a password", func() {
+	suite.T().Run("Can't register without a password", func(t *testing.T) {
 		rv := suite.register("meh", "", nil, nil)
 		assert.Contains(rv, "You have to enter a password")
 	})
-	suite.T().Run("Can't register if passwords do not match", func() {
+	suite.T().Run("Can't register if passwords do not match", func(t *testing.T) {
 		rv := suite.register("meh", "x", "y", nil)
 		assert.Contains(rv, "The two passwords do not match")
 	})
-	suite.T().Run("Email adress has to be valid", func() {
+	suite.T().Run("Email adress has to be valid", func(t *testing.T) {
 		rv := suite.register("meh", "foo", nil, "broken")
 		assert.Contains(rv, "You have to enter a valid email")
 	})
