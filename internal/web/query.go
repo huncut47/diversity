@@ -150,3 +150,25 @@ func (app *App) insertMessage(authorID int, text string) error {
             values (?, ?, ?, 0)`, authorID, text, time.Now().Unix())
 	return err
 }
+
+func (app *App) getUserFollowing(userID int, limit int) ([]string, error) {
+	rows, err := app.DB.Query(`select user.username
+		from follower, user
+		where follower.who_id = ? and follower.whom_id = user.user_id limit ?`, userID, limit)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var following []string
+	for rows.Next() {
+		var username string
+		err := rows.Scan(&username)
+		if err != nil {
+			return nil, err
+		}
+		following = append(following, username)
+	}
+	return following, rows.Err()
+}

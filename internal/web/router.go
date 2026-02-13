@@ -30,6 +30,8 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}/follow", app.FollowUserHandler)
 	r.Get("/{username}/unfollow", app.UnfollowUserHandler)
 	r.Get("/{username}", app.UserTimelineHandler)
+	// API
+	r.Get("/fllws/{username})", app.FollowersHandler)
 
 	r.Handle("/static/*", staicFileServer())
 

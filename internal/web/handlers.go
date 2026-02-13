@@ -1,10 +1,12 @@
 package web
 
 import (
+	"encoding/json"
 	"log/slog"
 	"minitwit/internal/models"
 	"minitwit/internal/utils"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -319,4 +321,46 @@ func (app *App) getUserFromContext(r *http.Request) *models.User {
 	}
 	slog.Info("User loaded from context", "user_id", user.UserID, "username", user.Username)
 	return user
+}
+
+func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	no := r.URL.Query().Get("no")
+	if no == "" {
+		no = "100"
+	}
+	limit, err := strconv.Atoi(no)
+	if err != nil {
+		limit = 100
+	}
+
+	userID, err := app.getUserId(username)
+	if err != nil {
+		slog.Error("Failed to get user ID", "username", username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if userID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	followers, err := app.getUserFollowing(userID, limit)
+	if err != nil {
+		slog.Error("Failed to get followers", "user_id", userID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	followersJSON, err := json.Marshal(map[string]interface{}{
+		"follows": followers,
+	})
+	if err != nil {
+		slog.Error("Failed to marshal followers to JSON", "user_id", userID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(followersJSON)
 }
