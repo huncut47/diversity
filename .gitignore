@@ -8,8 +8,6 @@ flag_tool
 go/cmd/main
 go/tmp
 
-# Anything idea or viscode
-
 .idea/
 .vscode/
 
