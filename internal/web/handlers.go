@@ -366,7 +366,69 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
 
+	defer r.Body.Close()
+
+	userID, err := app.getUserId(username)
+	if err != nil {
+		slog.Error("Failed to get user ID", "username", username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if userID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	var req struct {
+		Follow   []string `json:"follow,omitempty"`
+		Unfollow []string `json:"unfollow,omitempty"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("Failed to decode follow/unfollow request", "username", username, "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Follow) > 0 {
+		for _, followUsername := range req.Follow {
+			followUserID, err := app.getUserId(followUsername)
+			if err != nil {
+				slog.Error("Failed to get user ID for follow", "username", followUsername, "error", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = app.followUser(userID, followUserID)
+			if err != nil {
+				slog.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+		}
+	} else if len(req.Unfollow) > 0 {
+		for _, unfollowUsername := range req.Unfollow {
+			unfollowUserID, err := app.getUserId(unfollowUsername)
+			if err != nil {
+				slog.Error("Failed to get user ID for unfollow", "username", unfollowUsername, "error", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+			err = app.unfollowUser(userID, unfollowUserID)
+			if err != nil {
+				slog.Error("Failed to unfollow user", "user_id", userID, "unfollowed_id", unfollowUserID, "error", err)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+				return
+			}
+		}
+	} else {
+		http.Error(w, "Invalid request body: must contain 'follow' or 'unfollow'", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
