@@ -444,4 +444,48 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"pwd"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("Failed to decode registration request", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
+		return
+	}
+
+	existingUser, err := app.getUserByUsername(req.Username)
+	if err != nil {
+		slog.Error("Failed to check existing user", "username", req.Username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if existingUser != nil {
+		http.Error(w, "Username already taken", http.StatusBadRequest)
+		return
+	}
+
+	pwHash, err := utils.GeneratePasswordHash(req.Password)
+	if err != nil {
+		slog.Error("Failed to hash password", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	err = app.addUser(req.Username, req.Email, pwHash)
+	if err != nil {
+		slog.Error("Failed to add user", "username", req.Username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }
