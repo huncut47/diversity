@@ -327,7 +327,14 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	latest := r.URL.Query().Get("latest")
 	if latest != "" {
-		app.Latest = latest
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
+		
 	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
@@ -373,7 +380,13 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	latest := r.URL.Query().Get("latest")
 	if latest != "" {
-		app.Latest = latest
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
 	}
 
 	defer r.Body.Close()
@@ -454,7 +467,13 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	latest := r.URL.Query().Get("latest")
 	if latest != "" {
-		app.Latest = latest
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
 	}
 	
 	defer r.Body.Close()
