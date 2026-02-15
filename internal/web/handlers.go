@@ -325,6 +325,10 @@ func (app *App) getUserFromContext(r *http.Request) *models.User {
 
 func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		app.Latest = latest
+	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
 		no = "100"
@@ -367,6 +371,10 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		app.Latest = latest
+	}
 
 	defer r.Body.Close()
 
@@ -444,6 +452,13 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		app.Latest = latest
+	}
+	
+	defer r.Body.Close()
+
 	var req struct {
 		Username string `json:"username"`
 		Email    string `json:"email"`
