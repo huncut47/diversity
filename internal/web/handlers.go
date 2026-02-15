@@ -432,8 +432,10 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.Latest})
 }
+
 func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 }
