@@ -44,10 +44,10 @@ func main() {
 	}
 	defer db.Close()
 
-	//err = initDb()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	err = initDb()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	store.Options = &sessions.Options{
 		Path:     "/",
