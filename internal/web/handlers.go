@@ -139,10 +139,11 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if page.User != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	}
 
 	if r.Method == http.MethodPost {
-		// Handle login form submission
+		slog.Info("Received login request", "method", r.Method, "path", r.URL.Path)
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
@@ -152,22 +153,36 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if user == nil || !utils.CheckPasswordHash(user.PwHash, password) {
 			page.Error = "Invalid username or password"
-		}
-
-		// Set user in session if login is successful
-		if page.Error == "" {
-			session, _ := app.Store.Get(r, "session")
-			session.Values["user_id"] = user.UserID
-			session.Save(r, w)
-			http.Redirect(w, r, "/", http.StatusSeeOther)
+			err = app.Pages["login"].ExecuteTemplate(w, "layout", page)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
+
+		session, err := app.Store.Get(r, "session")
+		if err != nil {
+			slog.Error("Failed to get session", "error", err)
+			http.Error(w, "Failed to get session", http.StatusInternalServerError)
+			return
+		}
+
+		session.Values["user_id"] = user.UserID
+		err = session.Save(r, w)
+		if err != nil {
+			http.Error(w, "Failed to save session", http.StatusInternalServerError)
+			return
+		}
+		slog.Info("User logged in", "user_id", user.UserID, "username", user.Username)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
 	}
 
 	err := app.Pages["login"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	return
 }
 
 type RegisterPageData struct {
@@ -185,15 +200,71 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Error:    "",
 	}
 
-	if r.Method == http.MethodPost {
-		username := r.FormValue("username")
-		email := r.FormValue("email")
-		password := r.FormValue("password")
-		password2 := r.FormValue("password2")
+	var isAPI bool = false
 
-		if password != password2 {
-			page.Error = "Passwords do not match"
+	if r.Method == http.MethodPost {
+		username := ""
+		email := ""
+		password := ""
+
+		// Examine header to see if form submission or JSON body
+		if r.Header.Get("Content-Type") == "application/json" {
+			isAPI = true
+			// Parse the JSON body
+			var req struct {
+				Username string `json:"username"`
+				Email    string `json:"email"`
+				Password string `json:"password"`
+			}
+			err := json.NewDecoder(r.Body).Decode(&req)
+			if err != nil {
+				slog.Error("Failed to decode registration request", "error", err)
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+			username = req.Username
+			if username == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "missing username"})
+				return
+			}
+			email = req.Email
+			if email == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "invalid email"})
+				return
+			}
+			password = req.Password
+			if password == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "password missing"})
+				return
+			}
+		} else if r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+			username = r.FormValue("username")
+			email = r.FormValue("email")
+			password = r.FormValue("password")
+			password2 := r.FormValue("password2")
+
+			if password != password2 {
+				page.Error = "Passwords do not match"
+				err := app.Pages["register"].ExecuteTemplate(w, "layout", page)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
+				return
+			}
+		} else {
+			slog.Error("Unsupported Content-Type for registration", "Content-Type", r.Header.Get("Content-Type"))
+			http.Error(w, "Unsupported Content-Type", http.StatusUnsupportedMediaType)
+			return
 		}
+
+		slog.Info("Received registration request", "username", username, "email", email)
+
 		if username == "" || email == "" || password == "" {
 			page.Error = "All fields are required"
 		}
@@ -204,6 +275,13 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if existingUser != nil {
 			page.Error = "Username already taken"
+			if isAPI {
+				// Write error response for API request
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": page.Error})
+				return
+			}
 		}
 
 		if page.Error == "" {
@@ -214,8 +292,11 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				err = app.addUser(username, email, pwHash)
 				if err != nil {
 					page.Error = "Internal server error"
-				} else {
+				} else if !isAPI {
 					http.Redirect(w, r, "/login", http.StatusSeeOther)
+					return
+				} else {
+					w.WriteHeader(http.StatusOK)
 					return
 				}
 			}
@@ -226,6 +307,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	return
 }
 
 func (app *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {

@@ -7,7 +7,7 @@ Register
   {{ if .Error }}
     <div class=error><strong>Error:</strong> {{ .Error }}</div>
   {{ end }}
-  <form action="" method=post>
+<form action="" method="post" enctype="application/x-www-form-urlencoded">
     <dl>
       <dt>Username:
       <dd><input type=text name=username size=30 value="{{ .Username }}">

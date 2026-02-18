@@ -14,12 +14,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const DATABASE = "./minitwit.db"
+const DATABASE = "data/minitwit.db"
 
 var db *sql.DB
-
-var store = sessions.NewCookieStore([]byte("dev_key"))
-
+var store = sessions.NewCookieStore(
+	[]byte("12345678901234567890123456789012"),
+	[]byte("12345678901234567890123456789012"),
+)
 var funcMap = template.FuncMap{
 	"gravatar": utils.GravatarURL,
 	"datetime": utils.FormatDate,
@@ -43,9 +44,17 @@ func main() {
 	}
 	defer db.Close()
 
-	err = initDb()
-	if err != nil {
-		log.Fatal(err)
+	//err = initDb()
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+
+	store.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400,
+		HttpOnly: true,
+		Secure:   false, // true only on HTTPS
+		SameSite: http.SameSiteLaxMode,
 	}
 
 	app := &web.App{

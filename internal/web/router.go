@@ -22,7 +22,6 @@ func (app *App) NewRouter() chi.Router {
 	r.Post("/login", app.LoginHandler)
 
 	r.Get("/register", app.RegisterHandler)
-	r.Post("/register", app.RegisterHandler)
 
 	r.Get("/logout", app.LogoutHandler)
 
@@ -31,7 +30,6 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}/follow", app.FollowUserHandler)
 	r.Get("/{username}/unfollow", app.UnfollowUserHandler)
 	r.Get("/{username}", app.UserTimelineHandler)
-	
 
 	// API routes with auth
 	r.Group(func(api chi.Router) {
@@ -50,9 +48,9 @@ func (app *App) NewRouter() chi.Router {
 		api.Use(app.latestMiddleware)
 
 		api.Get("/latest", app.LatestOperationHandler)
-		api.Post("/register", app.RegisterAPIHandler)
+		r.Post("/register", app.RegisterHandler)
+		//api.Post("/register", app.RegisterAPIHandler)
 	})
-
 
 	r.Handle("/static/*", staicFileServer())
 
@@ -90,7 +88,7 @@ func (app *App) latestMiddleware(next http.Handler) http.Handler {
 			app.Latest++
 		}
 		next.ServeHTTP(w, r)
-    })
+	})
 }
 
 func (app *App) authorizationMiddleware(next http.Handler) http.Handler {

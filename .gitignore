@@ -13,3 +13,8 @@ go/tmp
 
 go/.vscode/
 go/.idea/
+
+minitwit.db
+data/*
+
+.env
