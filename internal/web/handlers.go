@@ -334,7 +334,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		app.Latest = latestInt
-		
+
 	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
@@ -458,12 +458,151 @@ func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
+	}
+	no := r.URL.Query().Get("no")
+	if no == "" {
+		no = "100"
+	}
+	limit, err := strconv.Atoi(no)
+	if err != nil {
+		limit = 100
+	}
 
+	defer r.Body.Close()
+
+	messages, err := app.getLatestMessages(limit, nil)
+	if err != nil {
+		slog.Error("Failed to load latest messages")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	messagesJSON, err := json.Marshal(messages)
+	if err != nil {
+		slog.Error("Failed Marshalize messages to JSON")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(messagesJSON)
 }
 func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
+	}
+	no := r.URL.Query().Get("no")
+	if no == "" {
+		no = "100"
+	}
+	limit, err := strconv.Atoi(no)
+	if err != nil {
+		limit = 100
+	}
+
+	defer r.Body.Close()
+
+	userID, err := app.getUserId(username)
+	if err != nil {
+		slog.Error("Failed to get user ID", "username", username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if userID == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	messages, err := app.getLatestMessages(limit, &userID)
+	if err != nil {
+		slog.Error("Failed to load latest messages")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	messagesJSON, err := json.Marshal(messages)
+	if err != nil {
+		slog.Error("Failed Marshalize messages to JSON")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(messagesJSON)
+
 }
+
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
+	username := chi.URLParam(r, "username")
+	latest := r.URL.Query().Get("latest")
+	if latest != "" {
+		latestInt, err := strconv.Atoi(latest)
+		if err != nil {
+			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
+			return
+		}
+		app.Latest = latestInt
+	}
+
+	defer r.Body.Close()
+
+	var req struct {
+		Content  string `json:"content"`
+		Username string `json:"username"`
+	}
+
+	user, err := app.getUserByUsername(username)
+	if err != nil {
+		slog.Error("Failed to check existing user", "username", req.Username, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "User do not exist", http.StatusBadRequest)
+		return
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("Failed to decode registration request", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Content == "" {
+		http.Error(w, "Messages must contain text", http.StatusBadRequest)
+		return
+	}
+
+	err = app.insertMessage(user.UserID, req.Content)
+	if err != nil {
+		slog.Error("Failed to add message to database", "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
 }
+
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	latest := r.URL.Query().Get("latest")
 	if latest != "" {
@@ -475,7 +614,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		app.Latest = latestInt
 	}
-	
+
 	defer r.Body.Close()
 
 	var req struct {
