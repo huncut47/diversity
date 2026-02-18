@@ -151,19 +151,35 @@ func (app *App) insertMessage(authorID int, text string) error {
 	return err
 }
 
-func (app *App) getLatestMessages(limit int) ([]models.Message, error) {
-	rows, err := app.DB.Query(`select *
+func (app *App) getLatestMessages(limit int, userID *int) ([]models.Message, error) {
+	if userID == nil {
+		rows, err := app.DB.Query(`select *
 		from message
 		where flagged = 0
 		order by pubdate desc
 		limit ?`, limit)
 
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
 
-	return scanMessages(rows)
+		return scanMessages(rows)
+	} else {
+		rows, err := app.DB.Query(`select *
+		from message
+		where flagged = 0 and userID = ?
+		order by pubdate desc
+		limit ?`, userID, limit)
+
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		return scanMessages(rows)
+	}
+
 }
 
 func (app *App) getUserFollowing(userID int, limit int) ([]string, error) {
