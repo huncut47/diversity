@@ -5,7 +5,7 @@ create table if not exists user (
   pw_hash string not null
 );
 
-create table if not exists follow (
+create table if not exists follower (
   who_id integer,
   whom_id integer
 );
