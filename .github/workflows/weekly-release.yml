@@ -1,0 +1,27 @@
+name: Weekly Release
+
+on:
+  schedule:
+    - cron: "0 9 * * 5" 
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate tag name
+        id: tag
+        run: echo "tag=release-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Weekly Release ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
