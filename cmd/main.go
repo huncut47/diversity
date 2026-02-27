@@ -1,22 +1,23 @@
 package main
 
 import (
-	"database/sql"
 	"html/template"
 	"log"
 	"log/slog"
+	"minitwit/internal/models"
 	"minitwit/internal/utils"
 	"minitwit/internal/web"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/sessions"
-	_ "github.com/mattn/go-sqlite3"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 const DATABASE = "data/minitwit.db"
 
-var db *sql.DB
+var db *gorm.DB
+
 var store = sessions.NewCookieStore(
 	[]byte("12345678901234567890123456789012"),
 	[]byte("12345678901234567890123456789012"),
@@ -42,12 +43,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
 
-	err = initDb()
+	sqlDB, err := db.DB()
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer sqlDB.Close()
+
+	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
+        if err != nil {
+                log.Fatal(err)
+        }
 
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -72,15 +78,6 @@ func main() {
 	}
 }
 
-func connectDb() (*sql.DB, error) {
-	return sql.Open("sqlite3", DATABASE)
-}
-
-func initDb() error {
-	content, err := os.ReadFile("schema.sql")
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(string(content))
-	return err
+func connectDb() (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open(DATABASE), &gorm.Config{})
 }

@@ -1,207 +1,146 @@
 package web
 
 import (
-	"database/sql"
 	"log"
 	"minitwit/internal/models"
 	"net/http"
 	"time"
 )
 
-func (app *App) getUserByUsername(username string) (*models.User, error) {
-	var u models.User
-
-	err := app.DB.
-		QueryRow(`SELECT user_id, username, email, pw_hash FROM "user" WHERE username = ?`, username).
-		Scan(&u.UserID, &u.Username, &u.Email, &u.PwHash)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
+ func (app *App) getUserByUsername(username string) (*models.User, error) {
+	var user models.User
+	result := app.DB.Where("username = ?", username).First(&user)
+	if result.Error != nil {
+			if result.Error.Error() == "record not found" {
+					return nil, nil
+			}
+			return nil, result.Error
 	}
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
+	return &user, nil
 }
 
-func scanMessages(rows *sql.Rows) ([]models.Message, error) {
+
+ func (app *App) getPublicMessages(limit int) ([]models.Message, error) {
 	var messages []models.Message
-	for rows.Next() {
-		var m models.Message
-		err := rows.Scan(&m.MessageId, &m.AuthorId, &m.Text, &m.PubDate, &m.Flagged, &m.Username, &m.Email)
-		if err != nil {
-			return nil, err
-		}
-		messages = append(messages, m)
-	}
-	return messages, rows.Err()
-}
-
-func (app *App) getPublicMessages(limit int) ([]models.Message, error) {
-	rows, err := app.DB.Query(`
-		select message.message_id, message.author_id, message.text,
-			message.pub_date, message.flagged, user.username, user.email
-		from message, user
-		where message.flagged = 0 and message.author_id = user.user_id
-		order by message.pub_date desc limit ?`, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanMessages(rows)
+	result := app.DB.
+			Select("message.*, user.username, user.email").
+			Joins("JOIN user ON user.user_id = message.author_id").
+			Where("message.flagged = 0").
+			Order("message.pub_date DESC").
+			Limit(limit).
+			Find(&messages)
+	return messages, result.Error
 }
 
 func (app *App) getTimelineMessages(userID int, limit int) ([]models.Message, error) {
-	rows, err := app.DB.Query(`
-		select message.message_id, message.author_id, message.text,
-			message.pub_date, message.flagged, user.username, user.email
-		from message, user
-		where message.flagged = 0 and message.author_id = user.user_id and (
-			user.user_id = ? or
-			user.user_id in (select whom_id from follower where who_id = ?))
-		order by message.pub_date desc limit ?`, userID, userID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanMessages(rows)
+	var messages []models.Message
+	subQuery := app.DB.Model(&models.Follower{}).Select("whom_id").Where("who_id = ?", userID)
+	result := app.DB.
+			Select("message.*, user.username, user.email").
+			Joins("JOIN user ON user.user_id = message.author_id").
+			Where("message.flagged = 0 AND (user.user_id = ? OR user.user_id IN (?))", userID, subQuery).
+			Order("message.pub_date DESC").
+			Limit(limit).
+			Find(&messages)
+	return messages, result.Error
 }
 
 func (app *App) getUserMessages(userID int, limit int) ([]models.Message, error) {
-	rows, err := app.DB.Query(`
-		select message.message_id, message.author_id, message.text, message.pub_date, message.flagged,
-			user.username, user.email
-		from message, user
-		where user.user_id = message.author_id and user.user_id = ?
-		order by message.pub_date desc limit ?`, userID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanMessages(rows)
+	var messages []models.Message
+	result := app.DB.
+			Select("message.*, user.username, user.email").
+			Joins("JOIN user ON user.user_id = message.author_id").
+			Where("message.flagged = 0 AND message.author_id = ?", userID).
+			Order("message.pub_date DESC").
+			Limit(limit).
+			Find(&messages)
+	return messages, result.Error
 }
+
 func (app *App) getSessionUserID(r *http.Request) int {
 	session, _ := app.Store.Get(r, "session")
-
 	log.Printf("getSessionUserID: session.Values = %#v", session.Values)
-
 	userID, ok := session.Values["user_id"].(int)
 	if !ok {
-		return 0
+			return 0
 	}
 	return userID
 }
 
 func (app *App) getUserId(username string) (int, error) {
-	var id int
-	err := app.DB.QueryRow("select user_id from user where username = ?", username).Scan(&id)
-	if err == sql.ErrNoRows {
-		return 0, nil
+	var user models.User
+	result := app.DB.Select("user_id").Where("username = ?", username).First(&user)
+	if result.Error != nil {
+			if result.Error.Error() == "record not found" {
+					return 0, nil
+			}
+			return 0, result.Error
 	}
-	return id, err
+	return user.UserID, nil
 }
 
 func (app *App) followUser(followerID int, followedID int) error {
-	_, err := app.DB.Exec(`insert into follower (who_id, whom_id) values (?, ?)`, followerID, followedID)
-	return err
+	return app.DB.Create(&models.Follower{WhoId: followerID, WhomId: followedID}).Error
 }
 
 func (app *App) unfollowUser(followerID int, followedID int) error {
-	_, err := app.DB.Exec(`delete from follower where who_id = ? and whom_id = ?`, followerID, followedID)
-	return err
+	return app.DB.Where("who_id = ? AND whom_id = ?", followerID, followedID).Delete(&models.Follower{}).Error
 }
 
 func (app *App) isFollowing(followerID int, followedID int) (bool, error) {
-	var count int
-	err := app.DB.
-		QueryRow(`select count(*) from follower where who_id = ? and whom_id = ?`, followerID, followedID).
-		Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
+	var count int64
+	result := app.DB.Model(&models.Follower{}).
+			Where("who_id = ? AND whom_id = ?", followerID, followedID).
+			Count(&count)
+	return count > 0, result.Error
 }
 
 func (app *App) getUserById(userID int) (*models.User, error) {
-	var u models.User
-
-	err := app.DB.
-		QueryRow(`SELECT user_id, username, email, pw_hash FROM "user" WHERE user_id = ?`, userID).
-		Scan(&u.UserID, &u.Username, &u.Email, &u.PwHash)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
+	var user models.User
+	result := app.DB.First(&user, userID)
+	if result.Error != nil {
+			if result.Error.Error() == "record not found" {
+					return nil, nil
+			}
+			return nil, result.Error
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &u, nil
+	return &user, nil
 }
 
 func (app *App) addUser(username string, email string, pwHash string) error {
-	_, err := app.DB.Exec(`insert into user (
-                username, email, pw_hash) values (?, ?, ?)`, username, email, pwHash)
-	return err
+	return app.DB.Create(&models.User{Username: username, Email: email, PwHash: pwHash}).Error
 }
 
 func (app *App) insertMessage(authorID int, text string) error {
-	_, err := app.DB.Exec(`insert into message (author_id, text, pub_date, flagged)
-            values (?, ?, ?, 0)`, authorID, text, time.Now().Unix())
-	return err
+	return app.DB.Create(&models.Message{
+			AuthorId: authorID,
+			Text:     text,
+			PubDate:  int(time.Now().Unix()),
+			Flagged:  0,
+	}).Error
 }
 
 func (app *App) getLatestMessages(limit int, userID *int) ([]models.Message, error) {
-	if userID == nil {
-		rows, err := app.DB.Query(`SELECT message.message_id, message.author_id, message.text,
-         message.pub_date, message.flagged, user.username, user.email
-  FROM message, user
-  WHERE message.flagged = 0 AND message.author_id = user.user_id
-  ORDER BY message.pub_date DESC
-  LIMIT ?`, limit)
-
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		return scanMessages(rows)
-	} else {
-		rows, err := app.DB.Query(`SELECT message.message_id, message.author_id, message.text,
-         message.pub_date, message.flagged, user.username, user.email
-  FROM message, user
-  WHERE message.flagged = 0 AND message.author_id = user.user_id AND message.author_id = ?
-  ORDER BY message.pub_date DESC
-  LIMIT ?`, userID, limit)
-
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		return scanMessages(rows)
+	var messages []models.Message
+	query := app.DB.
+			Select("message.*, user.username, user.email").
+			Joins("JOIN user ON user.user_id = message.author_id").
+			Where("message.flagged = 0").
+			Order("message.pub_date DESC").
+			Limit(limit)
+	if userID != nil {
+			query = query.Where("message.author_id = ?", *userID)
 	}
-
+	result := query.Find(&messages)
+	return messages, result.Error
 }
 
 func (app *App) getUserFollowing(userID int, limit int) ([]string, error) {
-	rows, err := app.DB.Query(`select user.username
-		from follower, user
-		where follower.who_id = ? and follower.whom_id = user.user_id limit ?`, userID, limit)
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var following []string
-	for rows.Next() {
-		var username string
-		err := rows.Scan(&username)
-		if err != nil {
-			return nil, err
-		}
-		following = append(following, username)
-	}
-	return following, rows.Err()
+	var usernames []string
+	result := app.DB.Model(&models.User{}).
+			Joins("JOIN follower ON follower.whom_id = user.user_id").
+			Where("follower.who_id = ?", userID).
+			Limit(limit).
+			Pluck("user.username", &usernames)
+	return usernames, result.Error
 }
