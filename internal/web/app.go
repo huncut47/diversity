@@ -1,14 +1,14 @@
 package web
 
 import (
-	"database/sql"
 	"html/template"
 
 	"github.com/gorilla/sessions"
+	"gorm.io/gorm"
 )
 
 type App struct {
-	DB    *sql.DB
+	DB    *gorm.DB
 	Store *sessions.CookieStore
 	Pages map[string]*template.Template
 	Latest int
