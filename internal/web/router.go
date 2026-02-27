@@ -48,8 +48,8 @@ func (app *App) NewRouter() chi.Router {
 		api.Use(app.latestMiddleware)
 
 		api.Get("/latest", app.LatestOperationHandler)
-		r.Post("/register", app.RegisterHandler)
-		//api.Post("/register", app.RegisterAPIHandler)
+		api.Post("/register", app.RegisterHandler)
+		// api.Post("/register", app.RegisterAPIHandler)
 	})
 
 	r.Handle("/static/*", staicFileServer())
@@ -84,8 +84,6 @@ func (app *App) latestMiddleware(next http.Handler) http.Handler {
 			if err == nil {
 				app.Latest = v
 			}
-		} else {
-			app.Latest++
 		}
 		next.ServeHTTP(w, r)
 	})

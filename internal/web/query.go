@@ -153,11 +153,12 @@ func (app *App) insertMessage(authorID int, text string) error {
 
 func (app *App) getLatestMessages(limit int, userID *int) ([]models.Message, error) {
 	if userID == nil {
-		rows, err := app.DB.Query(`select *
-		from message
-		where flagged = 0
-		order by pubdate desc
-		limit ?`, limit)
+		rows, err := app.DB.Query(`SELECT message.message_id, message.author_id, message.text,
+         message.pub_date, message.flagged, user.username, user.email
+  FROM message, user
+  WHERE message.flagged = 0 AND message.author_id = user.user_id
+  ORDER BY message.pub_date DESC
+  LIMIT ?`, limit)
 
 		if err != nil {
 			return nil, err
@@ -166,11 +167,12 @@ func (app *App) getLatestMessages(limit int, userID *int) ([]models.Message, err
 
 		return scanMessages(rows)
 	} else {
-		rows, err := app.DB.Query(`select *
-		from message
-		where flagged = 0 and userID = ?
-		order by pubdate desc
-		limit ?`, userID, limit)
+		rows, err := app.DB.Query(`SELECT message.message_id, message.author_id, message.text,
+         message.pub_date, message.flagged, user.username, user.email
+  FROM message, user
+  WHERE message.flagged = 0 AND message.author_id = user.user_id AND message.author_id = ?
+  ORDER BY message.pub_date DESC
+  LIMIT ?`, userID, limit)
 
 		if err != nil {
 			return nil, err

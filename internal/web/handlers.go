@@ -214,7 +214,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			var req struct {
 				Username string `json:"username"`
 				Email    string `json:"email"`
-				Password string `json:"password"`
+				Password string `json:"pwd"`
 			}
 			err := json.NewDecoder(r.Body).Decode(&req)
 			if err != nil {
@@ -485,8 +485,8 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Follow   []string `json:"follow,omitempty"`
-		Unfollow []string `json:"unfollow,omitempty"`
+		Follow   string `json:"follow,omitempty"`
+		Unfollow string `json:"unfollow,omitempty"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&req)
@@ -496,35 +496,31 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Follow) > 0 {
-		for _, followUsername := range req.Follow {
-			followUserID, err := app.getUserId(followUsername)
-			if err != nil {
-				slog.Error("Failed to get user ID for follow", "username", followUsername, "error", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = app.followUser(userID, followUserID)
-			if err != nil {
-				slog.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
+	if req.Follow != "" {
+		followUserID, err := app.getUserId(req.Follow)
+		if err != nil {
+			slog.Error("Failed to get user ID for follow", "username", req.Follow, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
 		}
-	} else if len(req.Unfollow) > 0 {
-		for _, unfollowUsername := range req.Unfollow {
-			unfollowUserID, err := app.getUserId(unfollowUsername)
-			if err != nil {
-				slog.Error("Failed to get user ID for unfollow", "username", unfollowUsername, "error", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
-			err = app.unfollowUser(userID, unfollowUserID)
-			if err != nil {
-				slog.Error("Failed to unfollow user", "user_id", userID, "unfollowed_id", unfollowUserID, "error", err)
-				http.Error(w, "Internal server error", http.StatusInternalServerError)
-				return
-			}
+		err = app.followUser(userID, followUserID)
+		if err != nil {
+			slog.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+	} else if req.Unfollow != "" {
+		unfollowUserID, err := app.getUserId(req.Unfollow)
+		if err != nil {
+			slog.Error("Failed to get user ID for unfollow", "username", req.Unfollow, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		err = app.unfollowUser(userID, unfollowUserID)
+		if err != nil {
+			slog.Error("Failed to unfollow user", "user_id", userID, "unfollowed_id", unfollowUserID, "error", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
 		}
 	} else {
 		http.Error(w, "Invalid request body: must contain 'follow' or 'unfollow'", http.StatusBadRequest)
