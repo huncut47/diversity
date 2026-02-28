@@ -7,6 +7,7 @@ import (
 	"minitwit/internal/utils"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -503,17 +504,26 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+		if followUserID == 0 {
+			http.NotFound(w, r)
+			return
+		}
 		err = app.followUser(userID, followUserID)
 		if err != nil {
 			slog.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
 	} else if req.Unfollow != "" {
 		unfollowUserID, err := app.getUserId(req.Unfollow)
 		if err != nil {
 			slog.Error("Failed to get user ID for unfollow", "username", req.Unfollow, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if unfollowUserID == 0 {
+			http.NotFound(w, r)
 			return
 		}
 		err = app.unfollowUser(userID, unfollowUserID)
@@ -527,7 +537,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
@@ -708,8 +718,22 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Username == "" || req.Email == "" || req.Password == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
+	if req.Username == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a username"})
+		return
+	}
+	if req.Email == "" || !strings.Contains(req.Email, "@") {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a valid email address"})
+		return
+	}
+	if req.Password == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a password"})
 		return
 	}
 
@@ -720,23 +744,25 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if existingUser != nil {
-		http.Error(w, "Username already taken", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "The username is already taken"})
 		return
 	}
 
 	pwHash, err := utils.GeneratePasswordHash(req.Password)
 	if err != nil {
 		slog.Error("Failed to hash password", "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, "Failed to hash password", http.StatusBadRequest)
 		return
 	}
 
 	err = app.addUser(req.Username, req.Email, pwHash)
 	if err != nil {
 		slog.Error("Failed to add user", "username", req.Username, "error", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, "Failed to add user", http.StatusBadRequest)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusNoContent)
 }
