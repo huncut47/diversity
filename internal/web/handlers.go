@@ -193,6 +193,14 @@ type RegisterPageData struct {
 	Error    string
 }
 
+func (app *App) RegisterDispatcher(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") == "application/json" {
+		app.RegisterAPIHandler(w, r)
+	} else {
+		app.RegisterHandler(w, r)
+	}
+}
+
 func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	page := RegisterPageData{
 		User:     app.getUserFromContext(r),
