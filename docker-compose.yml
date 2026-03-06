@@ -10,6 +10,7 @@ services:
   #     - ./Caddyfile:/etc/caddy/Caddyfile
   web:
     build: .
+    restart: always
     ports:
       - "80:3000"
     volumes:
