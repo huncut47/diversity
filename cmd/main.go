@@ -9,8 +9,9 @@ import (
 	"minitwit/internal/web"
 	"net/http"
 
+	"gorm.io/driver/postgres"
+
 	"github.com/gorilla/sessions"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -51,9 +52,9 @@ func main() {
 	defer sqlDB.Close()
 
 	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
-        if err != nil {
-                log.Fatal(err)
-        }
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -79,5 +80,7 @@ func main() {
 }
 
 func connectDb() (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(DATABASE), &gorm.Config{})
+	dsn := "host=database user=minitwit password=minitwit dbname=minitwit port=5432 sslmode=disable TimeZone=UTC"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	return db, err
 }

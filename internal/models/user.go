@@ -7,4 +7,4 @@ type User struct {
 	PwHash   string `gorm:"column:pw_hash"`
 }
 
-func (User) TableName() string { return "user" }
+func (User) TableName() string { return "users" }

@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # caddy:
   #   image: caddy:latest
@@ -8,10 +10,28 @@ services:
   #     - .env
   #   volumes:
   #     - ./Caddyfile:/etc/caddy/Caddyfile
+
   web:
     build: .
+    depends_on:
+      - database
     restart: always
     ports:
       - "80:3000"
     volumes:
-      - ./data/:/app/data/
+      - ./data:/app/data
+
+  database:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: minitwit
+      POSTGRES_PASSWORD: minitwit
+      POSTGRES_DB: minitwit
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
