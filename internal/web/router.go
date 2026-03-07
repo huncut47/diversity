@@ -14,6 +14,7 @@ func (app *App) NewRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(metricsMiddleware)
 	r.Use(app.authMiddleware)
 
 	r.Get("/", app.TimelineHandler)
