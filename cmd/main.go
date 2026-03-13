@@ -51,7 +51,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		err := sqlDB.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
 	if err != nil {

@@ -194,7 +194,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 	}
-	return
+
 }
 
 type RegisterPageData struct {
@@ -220,7 +220,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Error:    "",
 	}
 
-	var isAPI bool = false
+	var isAPI = false
 
 	if r.Method == http.MethodPost {
 		username := ""
@@ -248,7 +248,10 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "missing username"})
+				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "missing username"})
+				if err != nil {
+					slog.Error("Failed to encode error response", "error", err)
+				}
 				return
 			}
 			email = req.Email
@@ -256,7 +259,10 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "invalid email"})
+				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "invalid email"})
+				if err != nil {
+					slog.Error("Failed to encode error response", "error", err)
+				}
 				return
 			}
 			password = req.Password
@@ -264,7 +270,10 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "password missing"})
+				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "password missing"})
+				if err != nil {
+					slog.Error("Failed to encode error response", "error", err)
+				}
 				return
 			}
 		} else if r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
@@ -305,7 +314,10 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
-				json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": page.Error})
+				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": page.Error})
+				if err != nil {
+					slog.Error("Failed to encode error response", "error", err)
+				}
 				return
 			}
 		}
@@ -333,13 +345,15 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	return
 }
 
 func (app *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, _ := app.Store.Get(r, "session")
 	delete(session.Values, "user_id")
-	session.Save(r, w)
+	err := session.Save(r, w)
+	if err != nil {
+		slog.Error("Failed to save session", "error", err)
+	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -490,7 +504,10 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(followersJSON)
+	_, err = w.Write(followersJSON)
+	if err != nil {
+		slog.Error("Failed to write response", "error", err)
+	}
 }
 
 func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
@@ -507,7 +524,11 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 		app.Latest = latestInt
 	}
 
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Error("Failed to close request body", "error", err)
+		}
+	}()
 
 	userID, err := app.getUserId(username)
 	if err != nil {
@@ -584,7 +605,10 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.Latest})
+	err := json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.Latest})
+	if err != nil {
+		slog.Error("Failed to encode latest response", "error", err)
+	}
 }
 
 func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
@@ -608,7 +632,11 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Error("Failed to close request body", "error", err)
+		}
+	}()
 
 	messages, err := app.getLatestMessages(limit, nil)
 	if err != nil {
@@ -627,7 +655,10 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(messagesJSON)
+	_, err = w.Write(messagesJSON)
+	if err != nil {
+		slog.Error("Failed to write response", "error", err)
+	}
 }
 
 func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
@@ -652,7 +683,11 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Error("Failed to close request body", "error", err)
+		}
+	}()
 
 	userID, err := app.getUserId(username)
 	if err != nil {
@@ -683,7 +718,10 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(messagesJSON)
+	_, err = w.Write(messagesJSON)
+	if err != nil {
+		slog.Error("Failed to write response", "error", err)
+	}
 }
 
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
@@ -700,8 +738,11 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 		app.Latest = latestInt
 	}
 
-	defer r.Body.Close()
-
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Error("Failed to close request body", "error", err)
+		}
+	}()
 	var req struct {
 		Content  string `json:"content"`
 		Username string `json:"username"`
@@ -759,7 +800,11 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		app.Latest = latestInt
 	}
 
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Error("Failed to close request body", "error", err)
+		}
+	}()
 
 	var req struct {
 		Username string `json:"username"`
@@ -778,21 +823,30 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if req.Username == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a username"})
+		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a username"})
+		if err != nil {
+			slog.Error("Failed to encode error response", "error", err)
+		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a username")
 		return
 	}
 	if req.Email == "" || !strings.Contains(req.Email, "@") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a valid email address"})
+		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a valid email address"})
+		if err != nil {
+			slog.Error("Failed to encode error response", "error", err)
+		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a valid e-mail adress.")
 		return
 	}
 	if req.Password == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a password"})
+		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a password"})
+		if err != nil {
+			slog.Error("Failed to encode error response", "error", err)
+		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a password")
 		return
 	}
@@ -807,7 +861,10 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if existingUser != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "The username is already taken"})
+		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "The username is already taken"})
+		if err != nil {
+			slog.Error("Failed to encode error response", "error", err)
+		}
 		InvalidRequestsTotal.WithLabelValues("/register", "Username is already taken")
 		return
 	}
