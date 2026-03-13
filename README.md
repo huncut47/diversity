@@ -2,13 +2,28 @@
 
 This app was refactored to a golang application.
 
-
 ## Provisioning and Deployment
 
 ### Provisioning
+
 The `cmd/scripts/provision.go` script will provision the server in Hetzner Cloud.
 
+### Go Format
+
+Install the goformat tool to format the code:
+
+```bash
+go install mvdan.cc/gofumpt@latest
+```
+
+Then run the following command to format the code:
+
+```bash
+gofumpt -w .
+```
+
 ### Deployment
+
 The deployment is done with the setup.sh script, which will be executed on the server after provisioning. It requires that docker and docker compose is installed on the server. It starts the building of the DockerFile for the webapp and it starts the docker compose.
 
 ```bash
