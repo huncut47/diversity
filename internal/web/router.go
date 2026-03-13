@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+type contextKey string
+
+const userContextKey contextKey = "user"
 
 func (app *App) NewRouter() chi.Router {
 	r := chi.NewRouter()
@@ -71,7 +76,7 @@ func (app *App) authMiddleware(next http.Handler) http.Handler {
 		if userID > 0 {
 			user, err := app.getUserById(userID)
 			if err == nil && user != nil {
-				ctx := context.WithValue(r.Context(), "user", user)
+				ctx := context.WithValue(r.Context(), userContextKey, user)
 				r = r.WithContext(ctx)
 			}
 		}
@@ -97,7 +102,10 @@ func (app *App) authorizationMiddleware(next http.Handler) http.Handler {
 		if r.Header.Get("Authorization") != "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(403)
-			w.Write([]byte(`{"status": 403, "error_msg": "You are not authorized to use this resource!"}`))
+			_, err := w.Write([]byte(`{"status": 403, "error_msg": "You are not authorized to use this resource!"}`))
+			if err != nil {
+				slog.Error("Failed to write response", "error", err)
+			}
 			return
 		}
 		next.ServeHTTP(w, r)
