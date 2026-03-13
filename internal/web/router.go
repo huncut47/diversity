@@ -63,6 +63,7 @@ func staicFileServer() http.Handler {
 	fs := http.FileServer(http.Dir("./static"))
 	return http.StripPrefix("/static/", fs)
 }
+
 func (app *App) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := app.getSessionUserID(r)
