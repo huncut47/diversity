@@ -37,7 +37,6 @@ func genSalt(length int) (string, error) {
 }
 
 func GeneratePasswordHash(password string) (string, error) {
-
 	salt, err := genSalt(16)
 	if err != nil {
 		return "", err

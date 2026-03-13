@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [main]
@@ -6,9 +7,71 @@ on:
     branches: [main]
 
 jobs:
-  deploy:
+  gofmt:
+    name: Go format check
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install gofumpt
+        run: go install mvdan.cc/gofumpt@latest
+
+      - name: Check formatting
+        run: |
+          diff=$(gofumpt -l .)
+          if [ -n "$diff" ]; then
+            echo "These files are not formatted with gofumpt:"
+            echo "$diff"
+            exit 1
+          fi
+
+  golangci:
+    name: Go lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+          args: --timeout=5m
+
+  hadolint:
+    name: Dockerfile lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.2.0
+        with:
+          dockerfile: Dockerfile
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [gofmt, golangci, hadolint]
     if: github.ref == 'refs/heads/main'
+
     steps:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1

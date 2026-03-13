@@ -4,10 +4,11 @@ import (
 	"html/template"
 	"log"
 	"log/slog"
+	"net/http"
+
 	"minitwit/internal/models"
 	"minitwit/internal/utils"
 	"minitwit/internal/web"
-	"net/http"
 
 	"gorm.io/driver/postgres"
 
@@ -23,6 +24,7 @@ var store = sessions.NewCookieStore(
 	[]byte("12345678901234567890123456789012"),
 	[]byte("12345678901234567890123456789012"),
 )
+
 var funcMap = template.FuncMap{
 	"gravatar": utils.GravatarURL,
 	"datetime": utils.FormatDate,

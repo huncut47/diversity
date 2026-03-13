@@ -2,9 +2,10 @@ package web
 
 import (
 	"log"
-	"minitwit/internal/models"
 	"net/http"
 	"time"
+
+	"minitwit/internal/models"
 )
 
 func (app *App) getUserByUsername(username string) (*models.User, error) {

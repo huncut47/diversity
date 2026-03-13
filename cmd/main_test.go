@@ -1,17 +1,15 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -209,21 +207,21 @@ func (suite *MinitwitTestSuite) Test_timelines() {
 		assert.Contains(rv, "the message by foo")
 		assert.Contains(rv, "the message by bar")
 
-		//bar's timeline should just show bar's message
+		// bar's timeline should just show bar's message
 		rv = suite.makeHTTPRequest("GET", "/", "", "", false)
 		assert.Contains(rv, "the message by bar")
 		assert.NotContains(rv, "the message by foo")
 
-		//now let's follow foo
+		// now let's follow foo
 		rv = suite.makeHTTPRequest("GET", "/foo/follow", "", "", true)
 		assert.Contains(rv, "You are now following &#34;foo&#34;")
 
-		//we should now see foo's message
+		// we should now see foo's message
 		rv = suite.makeHTTPRequest("GET", "/", "", "", false)
 		assert.Contains(rv, "the message by bar")
 		assert.Contains(rv, "the message by foo")
 
-		//but on the user's page, we only want the user's message
+		// but on the user's page, we only want the user's message
 		rv = suite.makeHTTPRequest("GET", "/bar", "", "", false)
 		assert.Contains(rv, "the message by bar")
 		assert.NotContains(rv, "the message by foo")
@@ -231,7 +229,7 @@ func (suite *MinitwitTestSuite) Test_timelines() {
 		assert.Contains(rv, "the message by bar")
 		assert.NotContains(rv, "the message by foo")
 
-		//now unfollow, and check if that worked
+		// now unfollow, and check if that worked
 		rv = suite.makeHTTPRequest("GET", "/foo/unfollow", "", "", true)
 		assert.Contains(rv, "You are no longer following &#34;foo&#34;")
 		rv = suite.makeHTTPRequest("GET", "/", "", "", false)

@@ -3,11 +3,12 @@ package web
 import (
 	"encoding/json"
 	"log/slog"
-	"minitwit/internal/models"
-	"minitwit/internal/utils"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"minitwit/internal/models"
+	"minitwit/internal/utils"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -42,7 +43,7 @@ func (app *App) TimelineHandler(w http.ResponseWriter, r *http.Request) {
 	err = app.Pages["timeline"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
 		InternalServerErrorsTotal.WithLabelValues("/", "GET").Inc()
-		http.Error(w, err.Error(), http.StatusInternalServerError)	
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -129,7 +130,6 @@ func (app *App) UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 	}
-
 }
 
 type LoginPageData struct {
@@ -629,6 +629,7 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(messagesJSON)
 }
+
 func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	latest := r.URL.Query().Get("latest")
@@ -683,7 +684,6 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(messagesJSON)
-
 }
 
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
@@ -744,7 +744,6 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 	PostsTotal.Inc()
-
 }
 
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
