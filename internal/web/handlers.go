@@ -194,7 +194,6 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 	}
-
 }
 
 type RegisterPageData struct {
@@ -220,7 +219,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		Error:    "",
 	}
 
-	var isAPI = false
+	isAPI := false
 
 	if r.Method == http.MethodPost {
 		username := ""
