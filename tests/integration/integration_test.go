@@ -40,6 +40,8 @@ type MinitwitTestSuite struct {
 	sqlDB *sql.DB
 }
 
+const apiAuth = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
+
 var funcMap = template.FuncMap{
 	"gravatar": utils.GravatarURL,
 	"datetime": utils.FormatDate,
@@ -75,9 +77,9 @@ func (suite *MinitwitTestSuite) SetupTest() {
 			[]byte("12345678901234567890123456789012"),
 			[]byte("12345678901234567890123456789012"),),
 		Pages: map[string]*template.Template{
-					"register": loadTemplate("templates/layout.html", "templates/register.html"),
-					"login":    loadTemplate("templates/layout.html", "templates/login.html"),
-					"timeline": loadTemplate("templates/layout.html", "templates/timeline.html"),
+					"register": loadTemplate("../../templates/layout.html", "../../templates/register.html"),
+					"login":    loadTemplate("../../templates/layout.html", "../../templates/login.html"),
+					"timeline": loadTemplate("../../templates/layout.html", "../../templates/timeline.html"),
 				},
 	}
 
@@ -127,11 +129,18 @@ func (suite *MinitwitTestSuite) DecodeBodyToString(r *http.Response) string{
 
 func (suite *MinitwitTestSuite) CallRegisterAPI(username string) *http.Response {
 	jsonStr := []byte(fmt.Sprintf(`{"username": "%s","email":"%s@example.com","pwd":"%spass"}`, username, username, username))
-	resp, err := http.Post("http://localhost:3000/register", "application/json", bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest("POST", "http://localhost:3000/register",  bytes.NewBuffer(jsonStr))
 	if err != nil{
 		panic(err)
 	}
-	defer resp.Body.Close()
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil{
+		panic(err)
+	}
+	
 	return resp
 }
 
@@ -147,7 +156,8 @@ func (suite *MinitwitTestSuite) PostMessage(username string, msg string) *http.R
 }
 
 //Tests
-func (suite *MinitwitTestSuite) TestRegisterAPI(t *testing.T) {
+func (suite *MinitwitTestSuite) TestRegisterAPI() {
+	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	assert.True(t, resp.StatusCode == 204)
 	
@@ -158,7 +168,8 @@ func (suite *MinitwitTestSuite) TestRegisterAPI(t *testing.T) {
 	require.False(t, resp.StatusCode == 404)
 }
 
-func (suite *MinitwitTestSuite) TestMsgsUser(t *testing.T){
+func (suite *MinitwitTestSuite) TestMsgsUser(){
+	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	require.True(t, resp.StatusCode == 204)
 
@@ -176,7 +187,8 @@ func (suite *MinitwitTestSuite) TestMsgsUser(t *testing.T){
 	assert.True(t, resp.StatusCode == 200)
 }
 	
-func (suite *MinitwitTestSuite) TestFllwsUser(t *testing.T){
+func (suite *MinitwitTestSuite) TestFllwsUser(){
+	t := suite.T()
 	resp := suite.CallRegisterAPI("user1")
 	require.True(t, resp.StatusCode == 204)
 	resp = suite.CallRegisterAPI("user2")
@@ -225,7 +237,8 @@ func (suite *MinitwitTestSuite) TestFllwsUser(t *testing.T){
 	assert.NotContains(t, data.Follows, "user2")
 }
 
-func (suite *MinitwitTestSuite) TestMsgs(t *testing.T) {
+func (suite *MinitwitTestSuite) TestMsgs() {
+	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	require.True(t, resp.StatusCode == 204)
 
@@ -247,7 +260,8 @@ func (suite *MinitwitTestSuite) TestMsgs(t *testing.T) {
 	assert.Contains(t, bodyText, "message3")
 }
 
-func (suite *MinitwitTestSuite) TestLatest(t *testing.T) {
+func (suite *MinitwitTestSuite) TestLatest() {
+	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	require.True(t, resp.StatusCode == 204)
 	resp = suite.PostMessage("testuser", "test")
