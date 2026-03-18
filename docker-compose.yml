@@ -35,6 +35,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    restart: always
     ports:
       - "9090:9090"
     volumes:
@@ -42,6 +43,7 @@ services:
       - prometheus_data:/prometheus/
   grafana:
     image: grafana/grafana:latest
+    restart: always
     ports:
       - "3001:3000"
     volumes:
@@ -53,6 +55,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
   node-exporter:
     image: prom/node-exporter
+    restart: always
     ports:
       - "9100:9100"
     volumes:
@@ -63,6 +66,15 @@ services:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
+  uitest:
+    build:
+      context: .
+      dockerfile: Dockerfile.uitest
+    depends_on:
+      - web
+      - database
+    profiles:
+      - test
 
 volumes:
   prometheus_data:
