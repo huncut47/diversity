@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -18,13 +20,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"net/http"
-	/* "net/http/httptest"
-	"net/url" */
 	"minitwit/internal/models"
 	"minitwit/internal/utils"
 	"minitwit/internal/web"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -35,9 +33,9 @@ type MinitwitTestSuite struct {
 	router *chi.Mux
 	dbFile *os.File
 	dbPath string
-	app web.App
+	app    web.App
 	server *http.Server
-	sqlDB *sql.DB
+	sqlDB  *sql.DB
 }
 
 const apiAuth = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
@@ -49,6 +47,19 @@ var funcMap = template.FuncMap{
 
 func loadTemplate(files ...string) *template.Template {
 	return template.Must(template.New("").Funcs(funcMap).ParseFiles(files...))
+}
+
+func (suite *MinitwitTestSuite) waitForServer(url string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(url)
+		if err == nil {
+			resp.Body.Close()
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	panic("server not ready after timeout")
 }
 
 // Set up blank database before each test
@@ -66,61 +77,61 @@ func (suite *MinitwitTestSuite) SetupTest() {
 	sqlDB, err := db.DB()
 	suite.Require().NoError(err)
 	suite.sqlDB = sqlDB
-	
 
 	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
 	suite.Require().NoError(err)
 
 	suite.app = web.App{
-		DB:    db,
+		DB: db,
 		Store: sessions.NewCookieStore(
 			[]byte("12345678901234567890123456789012"),
-			[]byte("12345678901234567890123456789012"),),
+			[]byte("12345678901234567890123456789012")),
 		Pages: map[string]*template.Template{
-					"register": loadTemplate("../../templates/layout.html", "../../templates/register.html"),
-					"login":    loadTemplate("../../templates/layout.html", "../../templates/login.html"),
-					"timeline": loadTemplate("../../templates/layout.html", "../../templates/timeline.html"),
-				},
+			"register": loadTemplate("../../templates/layout.html", "../../templates/register.html"),
+			"login":    loadTemplate("../../templates/layout.html", "../../templates/login.html"),
+			"timeline": loadTemplate("../../templates/layout.html", "../../templates/timeline.html"),
+		},
 	}
 
 	suite.router = suite.app.NewRouter().(*chi.Mux)
 
 	suite.server = &http.Server{
-        Addr:    ":3000",
-        Handler: suite.router,
-    }
+		Addr:    ":3000",
+		Handler: suite.router,
+	}
 
 	go func() {
-        if err := suite.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            suite.T().Fatalf("Server failed: %v", err)
-        }
-    }()
+		if err := suite.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			suite.T().Fatalf("Server failed: %v", err)
+		}
+	}()
 
+	suite.waitForServer("http://localhost:3000", 2*time.Second)
 }
-//Tear down after each test
+
+// Tear down after each test
 func (suite *MinitwitTestSuite) TearDownTest() {
 	if suite.server != nil {
-        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-        defer cancel()
-        if err := suite.server.Shutdown(ctx); err != nil {
-            suite.T().Fatalf("Server shutdown failed: %v", err)
-        }
-    }
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := suite.server.Shutdown(ctx); err != nil {
+			suite.T().Fatalf("Server shutdown failed: %v", err)
+		}
+	}
 
-    if suite.sqlDB != nil {
-        suite.sqlDB.Close()
-    }
+	if suite.sqlDB != nil {
+		suite.sqlDB.Close()
+	}
 
-    if suite.dbFile != nil {
-        os.Remove(suite.dbPath)
-    }
+	if suite.dbFile != nil {
+		os.Remove(suite.dbPath)
+	}
 }
 
-//Helper functions
-
-func (suite *MinitwitTestSuite) DecodeBodyToString(r *http.Response) string{
+// Helper functions
+func (suite *MinitwitTestSuite) DecodeBodyToString(r *http.Response) string {
 	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	bodyString := string(bodyBytes)
@@ -129,38 +140,43 @@ func (suite *MinitwitTestSuite) DecodeBodyToString(r *http.Response) string{
 
 func (suite *MinitwitTestSuite) CallRegisterAPI(username string) *http.Response {
 	jsonStr := []byte(fmt.Sprintf(`{"username": "%s","email":"%s@example.com","pwd":"%spass"}`, username, username, username))
-	req, err := http.NewRequest("POST", "http://localhost:3000/register",  bytes.NewBuffer(jsonStr))
-	if err != nil{
+	req, err := http.NewRequest("POST", "http://localhost:3000/register", bytes.NewBuffer(jsonStr))
+	if err != nil {
 		panic(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", apiAuth)
 
 	resp, err := http.DefaultClient.Do(req)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
-	
+
 	return resp
 }
 
-
-func (suite *MinitwitTestSuite) PostMessage(username string, msg string) *http.Response{
+func (suite *MinitwitTestSuite) PostMessage(username string, msg string) *http.Response {
 	jsonStr := []byte(fmt.Sprintf(`{"content": "%s"}`, msg))
-	resp, err := http.Post(fmt.Sprintf("http://localhost:3000/msgs/%s", username), "application/json", bytes.NewBuffer(jsonStr))
-	if err != nil{
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:3000/msgs/%s", username), bytes.NewBuffer(jsonStr))
+	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
 	return resp
 }
 
-//Tests
+// Tests
 func (suite *MinitwitTestSuite) TestRegisterAPI() {
 	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	assert.True(t, resp.StatusCode == 204)
-	
+
 	resp, err := http.Get("http://localhost:3000/testuser")
 	if err != nil {
 		panic(err)
@@ -168,70 +184,105 @@ func (suite *MinitwitTestSuite) TestRegisterAPI() {
 	require.False(t, resp.StatusCode == 404)
 }
 
-func (suite *MinitwitTestSuite) TestMsgsUser(){
+func (suite *MinitwitTestSuite) TestMsgsUser() {
 	t := suite.T()
 	resp := suite.CallRegisterAPI("testuser")
 	require.True(t, resp.StatusCode == 204)
 
-	//Test POST
+	// Test POST
 	resp = suite.PostMessage("testuser", "this is a test message")
 	assert.True(t, resp.StatusCode == 204)
 
-	//Test GET
-	resp, err := http.Get("http://localhost:3000/msgs/testuser")
-	if err != nil{
+	// Test GET
+	req, err := http.NewRequest("GET", "http://localhost:3000/testuser", nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
 		panic(err)
 	}
 	responseBody := suite.DecodeBodyToString(resp)
 	assert.Contains(t, responseBody, "this is a test message")
 	assert.True(t, resp.StatusCode == 200)
 }
-	
-func (suite *MinitwitTestSuite) TestFllwsUser(){
+
+func (suite *MinitwitTestSuite) TestFllwsUser() {
 	t := suite.T()
 	resp := suite.CallRegisterAPI("user1")
 	require.True(t, resp.StatusCode == 204)
 	resp = suite.CallRegisterAPI("user2")
 	require.True(t, resp.StatusCode == 204)
 
-	//Test POST Follow:
+	// Test POST Follow:
 	jsonStr := []byte(`{"follow":"user2"}`)
-	resp, err := http.Post("http://localhost:3000/fllws/user1", "application/json", bytes.NewBuffer(jsonStr))
-	if err != nil{
+	req, err := http.NewRequest("POST", "http://localhost:3000/fllws/user1", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
 		panic(err)
 	}
 	assert.True(t, resp.StatusCode == 204)
 
-	//Test GET
-	resp, err = http.Get("http://localhost:3000/fllws/user1)")
-	if err!= nil{
+	// Test GET
+	req, err = http.NewRequest("GET", "http://localhost:3000/fllws/user1", nil)
+	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
 
 	var data struct {
-		Follows string `json:"follows"`
+		Follows []string `json:"follows"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	assert.Contains(t, data.Follows, "user2")
 
-	//Test POST Unfollow
+	// Test POST Unfollow
 	jsonStr = []byte(`{"unfollow":"user2"}`)
-	resp, err = http.Post("http://localhost:3000/fllws/user1", "application/json", bytes.NewBuffer(jsonStr))
-	if err != nil{
+	req, err = http.NewRequest("POST", "http://localhost:3000/fllws/user1", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
 		panic(err)
 	}
 	assert.True(t, resp.StatusCode == 204)
-	resp, err = http.Get("http://localhost:3000/fllws/user1)")
-	if err!= nil{
+
+	req, err = http.NewRequest("GET", "http://localhost:3000/fllws/user1", nil)
+	if err != nil {
 		panic(err)
 	}
-	defer resp.Body.Close()
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
 	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	assert.NotContains(t, data.Follows, "user2")
@@ -249,8 +300,15 @@ func (suite *MinitwitTestSuite) TestMsgs() {
 	resp = suite.PostMessage("testuser", "message3")
 	assert.True(t, resp.StatusCode == 204)
 
-	resp, err := http.Get("http://localhost:3000/msgs")
-	if err != nil{
+	req, err := http.NewRequest("GET", "http://localhost:3000/msgs", nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
 		panic(err)
 	}
 	assert.True(t, resp.StatusCode == 200)
@@ -267,8 +325,15 @@ func (suite *MinitwitTestSuite) TestLatest() {
 	resp = suite.PostMessage("testuser", "test")
 	require.True(t, resp.StatusCode == 204)
 
-	resp, err := http.Get("http://localhost:3000/msgs?latest=45271")
-	if err != nil{
+	req, err := http.NewRequest("GET", "http://localhost:3000/msgs?latest=45271", nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
 		panic(err)
 	}
 	assert.True(t, resp.StatusCode == 200)
@@ -277,14 +342,27 @@ func (suite *MinitwitTestSuite) TestLatest() {
 		Latest int `json:"latest"`
 	}
 
+	req, err = http.NewRequest("GET", "http://localhost:3000/latest", nil)
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", apiAuth)
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	assert.True(t, resp.StatusCode == 200)
+
 	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	assert.True(t, data.Latest == 45271)
 }
 
-//Run the test script
+// Run the test script
 func TestMinitwit(t *testing.T) {
-    suite.Run(t, new(MinitwitTestSuite))
+	suite.Run(t, new(MinitwitTestSuite))
 }
