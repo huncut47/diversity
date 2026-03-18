@@ -54,7 +54,10 @@ func (suite *MinitwitTestSuite) waitForServer(url string, timeout time.Duration)
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(url)
 		if err == nil {
-			resp.Body.Close()
+			err = resp.Body.Close()
+			if err !=nil{
+				panic(err)
+			}
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -100,11 +103,22 @@ func (suite *MinitwitTestSuite) SetupTest() {
 		Handler: suite.router,
 	}
 
+	errCh := make(chan error, 1)
+
 	go func() {
 		if err := suite.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			suite.T().Fatalf("Server failed: %v", err)
+			errCh <- fmt.Errorf("server failed: %w", err)
 		}
+		close(errCh)
 	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			suite.T().Fatal(err)
+		}
+	case <-time.After(time.Second): 
+	}
 
 	suite.waitForServer("http://localhost:3000", 2*time.Second)
 }
@@ -120,11 +134,17 @@ func (suite *MinitwitTestSuite) TearDownTest() {
 	}
 
 	if suite.sqlDB != nil {
-		suite.sqlDB.Close()
+		err := suite.sqlDB.Close()
+		if err != nil{
+			panic(err)
+		}
 	}
 
 	if suite.dbFile != nil {
-		os.Remove(suite.dbPath)
+		err := os.Remove(suite.dbPath)
+		if err != nil{
+			panic(err)
+		}
 	}
 }
 
