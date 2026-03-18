@@ -386,6 +386,7 @@ func (app *App) FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.getUserFromContext(r)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
 	username := chi.URLParam(r, "username")
 	profileUser, err := app.getUserByUsername(username)
@@ -415,6 +416,7 @@ func (app *App) UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.getUserFromContext(r)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
 	username := chi.URLParam(r, "username")
 	profileUser, err := app.getUserByUsername(username)
@@ -441,7 +443,7 @@ func (app *App) UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) getUserFromContext(r *http.Request) *models.User {
-	user, ok := r.Context().Value("user").(*models.User)
+	user, ok := r.Context().Value(userContextKey).(*models.User)
 	if !ok {
 		return nil
 	}
