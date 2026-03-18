@@ -55,7 +55,7 @@ func (suite *MinitwitTestSuite) waitForServer(url string, timeout time.Duration)
 		resp, err := http.Get(url)
 		if err == nil {
 			err = resp.Body.Close()
-			if err !=nil{
+			if err != nil {
 				panic(err)
 			}
 			return
@@ -117,7 +117,7 @@ func (suite *MinitwitTestSuite) SetupTest() {
 		if err != nil {
 			suite.T().Fatal(err)
 		}
-	case <-time.After(time.Second): 
+	case <-time.After(time.Second):
 	}
 
 	suite.waitForServer("http://localhost:3000", 2*time.Second)
@@ -135,14 +135,14 @@ func (suite *MinitwitTestSuite) TearDownTest() {
 
 	if suite.sqlDB != nil {
 		err := suite.sqlDB.Close()
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 	}
 
 	if suite.dbFile != nil {
 		err := os.Remove(suite.dbPath)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 	}
