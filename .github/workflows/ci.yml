@@ -68,7 +68,7 @@ jobs:
 
   integration_test:
     name: Integration testing of API
-    runs-un: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
