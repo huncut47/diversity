@@ -17,7 +17,7 @@ services:
       - database
     restart: always
     ports:
-      - "80:3000"
+      - "8080:3000"
     volumes:
       - ./data:/app/data
 
@@ -100,6 +100,24 @@ services:
       - elk
     restart: unless-stopped
 
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    user: root
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_data:/usr/share/filebeat/data
+    environment:
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    networks:
+      - elk
+    restart: unless-stopped
+
 networks:
   elk:
     driver: bridge
@@ -110,3 +128,4 @@ volumes:
   grafana_data:
   db_data:
   elasticsearch:
+  filebeat_data:
