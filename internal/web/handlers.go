@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,21 +19,21 @@ type TimelinePageData struct {
 }
 
 func (app *App) TimelineHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Info("Received request for timeline", "method", r.Method, "path", r.URL.Path)
+	app.Logger.Info("Received request for timeline", "method", r.Method, "path", r.URL.Path)
 	page := TimelinePageData{
 		User:     app.getUserFromContext(r),
 		Messages: []models.Message{},
 		Endpoint: "timeline",
 	}
 	if page.User == nil {
-		slog.Info("No user in context, redirecting to public timeline")
+		app.Logger.Info("No user in context, redirecting to public timeline")
 		http.Redirect(w, r, "/public", http.StatusSeeOther)
 		return
 	}
-	slog.Info("Loading timeline for user", "user_id", page.User.UserID, "username", page.User.Username)
+	app.Logger.Info("Loading timeline for user", "user_id", page.User.UserID, "username", page.User.Username)
 	messages, err := app.getTimelineMessages(page.User.UserID, 100)
 	if err != nil {
-		slog.Error("Failed to load timeline", "error", err)
+		app.Logger.Error("Failed to load timeline", "error", err)
 		InternalServerErrorsTotal.WithLabelValues("/", "GET").Inc()
 		http.Error(w, "Failed to load timeline", http.StatusInternalServerError)
 	}
@@ -62,7 +61,7 @@ func (app *App) PublicTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := app.getPublicMessages(100)
 	if err != nil {
-		slog.Error("Failed to load public timeline", "error", err)
+		app.Logger.Error("Failed to load public timeline", "error", err)
 		http.Error(w, "Failed to load public timeline", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/public", "GET").Inc()
 	}
@@ -93,7 +92,7 @@ func (app *App) UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	profileUser, err := app.getUserByUsername(username)
 	if err != nil {
-		slog.Error("Failed to load user for profile", "username", username, "error", err)
+		app.Logger.Error("Failed to load user for profile", "username", username, "error", err)
 		http.Error(w, "Failed to load user profile", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 		return
@@ -108,7 +107,7 @@ func (app *App) UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	if page.User != nil {
 		following, err := app.isFollowing(page.User.UserID, profileUser.UserID)
 		if err != nil {
-			slog.Error("Failed to check following status", "follower_id", page.User.UserID, "followed_id", profileUser.UserID, "error", err)
+			app.Logger.Error("Failed to check following status", "follower_id", page.User.UserID, "followed_id", profileUser.UserID, "error", err)
 			http.Error(w, "Failed to load user profile", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 			return
@@ -118,7 +117,7 @@ func (app *App) UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := app.getUserMessages(profileUser.UserID, 100)
 	if err != nil {
-		slog.Error("Failed to load user timeline", "user_id", profileUser.UserID, "error", err)
+		app.Logger.Error("Failed to load user timeline", "user_id", profileUser.UserID, "error", err)
 		http.Error(w, "Failed to load user timeline", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 		return
@@ -151,7 +150,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		slog.Info("Received login request", "method", r.Method, "path", r.URL.Path)
+		app.Logger.Info("Received login request", "method", r.Method, "path", r.URL.Path)
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
@@ -171,7 +170,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 		session, err := app.Store.Get(r, "session")
 		if err != nil {
-			slog.Error("Failed to get session", "error", err)
+			app.Logger.Error("Failed to get session", "error", err)
 			http.Error(w, "Failed to get session", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 			return
@@ -184,7 +183,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			InternalServerErrorsTotal.WithLabelValues("/{username}", "PUT").Inc()
 			return
 		}
-		slog.Info("User logged in", "user_id", user.UserID, "username", user.Username)
+		app.Logger.Info("User logged in", "user_id", user.UserID, "username", user.Username)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -237,7 +236,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := json.NewDecoder(r.Body).Decode(&req)
 			if err != nil {
-				slog.Error("Failed to decode registration request", "error", err)
+				app.Logger.Error("Failed to decode registration request", "error", err)
 				http.Error(w, "Invalid request body", http.StatusBadRequest)
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 				return
@@ -249,7 +248,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "missing username"})
 				if err != nil {
-					slog.Error("Failed to encode error response", "error", err)
+					app.Logger.Error("Failed to encode error response", "error", err)
 				}
 				return
 			}
@@ -260,7 +259,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "invalid email"})
 				if err != nil {
-					slog.Error("Failed to encode error response", "error", err)
+					app.Logger.Error("Failed to encode error response", "error", err)
 				}
 				return
 			}
@@ -271,7 +270,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": "password missing"})
 				if err != nil {
-					slog.Error("Failed to encode error response", "error", err)
+					app.Logger.Error("Failed to encode error response", "error", err)
 				}
 				return
 			}
@@ -291,12 +290,12 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			slog.Error("Unsupported Content-Type for registration", "Content-Type", r.Header.Get("Content-Type"))
+			app.Logger.Error("Unsupported Content-Type for registration", "Content-Type", r.Header.Get("Content-Type"))
 			http.Error(w, "Unsupported Content-Type", http.StatusUnsupportedMediaType)
 			return
 		}
 
-		slog.Info("Received registration request", "username", username, "email", email)
+		app.Logger.Info("Received registration request", "username", username, "email", email)
 
 		if username == "" || email == "" || password == "" {
 			page.Error = "All fields are required"
@@ -315,7 +314,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 				err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error": page.Error})
 				if err != nil {
-					slog.Error("Failed to encode error response", "error", err)
+					app.Logger.Error("Failed to encode error response", "error", err)
 				}
 				return
 			}
@@ -351,7 +350,7 @@ func (app *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	delete(session.Values, "user_id")
 	err := session.Save(r, w)
 	if err != nil {
-		slog.Error("Failed to save session", "error", err)
+		app.Logger.Error("Failed to save session", "error", err)
 	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -370,7 +369,7 @@ func (app *App) AddMessageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("Adding message for user", "user_id", user.UserID, "username", user.Username, "text_length", len(text))
+	app.Logger.Info("Adding message for user", "user_id", user.UserID, "username", user.Username, "text_length", len(text))
 
 	err := app.insertMessage(user.UserID, text)
 	if err != nil {
@@ -391,7 +390,7 @@ func (app *App) FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	profileUser, err := app.getUserByUsername(username)
 	if err != nil {
-		slog.Error("Failed to load user for follow", "username", username, "error", err)
+		app.Logger.Error("Failed to load user for follow", "username", username, "error", err)
 		http.Error(w, "Failed to load user profile", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}/follow", "GET").Inc()
 		return
@@ -403,7 +402,7 @@ func (app *App) FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = app.followUser(user.UserID, profileUser.UserID)
 	if err != nil {
-		slog.Error("Failed to follow user", "follower_id", user.UserID, "followed_id", profileUser.UserID, "error", err)
+		app.Logger.Error("Failed to follow user", "follower_id", user.UserID, "followed_id", profileUser.UserID, "error", err)
 		http.Error(w, "Failed to follow user", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}/follow", "POST").Inc()
 		return
@@ -421,7 +420,7 @@ func (app *App) UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	profileUser, err := app.getUserByUsername(username)
 	if err != nil {
-		slog.Error("Failed to load user for unfollow", "username", username, "error", err)
+		app.Logger.Error("Failed to load user for unfollow", "username", username, "error", err)
 		http.Error(w, "Failed to load user profile", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}/unfollow", "GET").Inc()
 		return
@@ -433,7 +432,7 @@ func (app *App) UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = app.unfollowUser(user.UserID, profileUser.UserID)
 	if err != nil {
-		slog.Error("Failed to unfollow user", "follower_id", user.UserID, "followed_id", profileUser.UserID, "error", err)
+		app.Logger.Error("Failed to unfollow user", "follower_id", user.UserID, "followed_id", profileUser.UserID, "error", err)
 		http.Error(w, "Failed to unfollow user", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}/unfollow", "POST").Inc()
 		return
@@ -447,7 +446,7 @@ func (app *App) getUserFromContext(r *http.Request) *models.User {
 	if !ok {
 		return nil
 	}
-	slog.Info("User loaded from context", "user_id", user.UserID, "username", user.Username)
+	app.Logger.Info("User loaded from context", "user_id", user.UserID, "username", user.Username)
 	return user
 }
 
@@ -457,7 +456,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/fllws/{username}", "Invalid Latest Parameter")
 			return
@@ -476,7 +475,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := app.getUserId(username)
 	if err != nil {
-		slog.Error("Failed to get user ID", "username", username, "error", err)
+		app.Logger.Error("Failed to get user ID", "username", username, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 		return
@@ -488,7 +487,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 
 	followers, err := app.getUserFollowing(userID, limit)
 	if err != nil {
-		slog.Error("Failed to get followers", "user_id", userID, "error", err)
+		app.Logger.Error("Failed to get followers", "user_id", userID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 		return
@@ -498,7 +497,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 		"follows": followers,
 	})
 	if err != nil {
-		slog.Error("Failed to marshal followers to JSON", "user_id", userID, "error", err)
+		app.Logger.Error("Failed to marshal followers to JSON", "user_id", userID, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 		return
@@ -507,7 +506,7 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(followersJSON)
 	if err != nil {
-		slog.Error("Failed to write response", "error", err)
+		app.Logger.Error("Failed to write response", "error", err)
 	}
 }
 
@@ -517,7 +516,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/fllws/{username}", "Invalid Latest Parameter")
 			return
@@ -527,13 +526,13 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			slog.Error("Failed to close request body", "error", err)
+			app.Logger.Error("Failed to close request body", "error", err)
 		}
 	}()
 
 	userID, err := app.getUserId(username)
 	if err != nil {
-		slog.Error("Failed to get user ID", "username", username, "error", err)
+		app.Logger.Error("Failed to get user ID", "username", username, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 		return
@@ -550,7 +549,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		slog.Error("Failed to decode follow/unfollow request", "username", username, "error", err)
+		app.Logger.Error("Failed to decode follow/unfollow request", "username", username, "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		InvalidRequestsTotal.WithLabelValues("/fllws/{username}", "Invalid request body")
 		return
@@ -559,7 +558,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if req.Follow != "" {
 		followUserID, err := app.getUserId(req.Follow)
 		if err != nil {
-			slog.Error("Failed to get user ID for follow", "username", req.Follow, "error", err)
+			app.Logger.Error("Failed to get user ID for follow", "username", req.Follow, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 			return
@@ -570,7 +569,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		err = app.followUser(userID, followUserID)
 		if err != nil {
-			slog.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
+			app.Logger.Error("Failed to follow user", "user_id", userID, "followed_id", followUserID, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "POST").Inc()
 			return
@@ -579,7 +578,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	} else if req.Unfollow != "" {
 		unfollowUserID, err := app.getUserId(req.Unfollow)
 		if err != nil {
-			slog.Error("Failed to get user ID for unfollow", "username", req.Unfollow, "error", err)
+			app.Logger.Error("Failed to get user ID for unfollow", "username", req.Unfollow, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "GET").Inc()
 			return
@@ -590,7 +589,7 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		err = app.unfollowUser(userID, unfollowUserID)
 		if err != nil {
-			slog.Error("Failed to unfollow user", "user_id", userID, "unfollowed_id", unfollowUserID, "error", err)
+			app.Logger.Error("Failed to unfollow user", "user_id", userID, "unfollowed_id", unfollowUserID, "error", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/fllws/{username}", "POST").Inc()
 			return
@@ -608,7 +607,7 @@ func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.Latest})
 	if err != nil {
-		slog.Error("Failed to encode latest response", "error", err)
+		app.Logger.Error("Failed to encode latest response", "error", err)
 	}
 }
 
@@ -617,7 +616,7 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/msgs", "Invalid last parameter")
 			return
@@ -635,20 +634,20 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			slog.Error("Failed to close request body", "error", err)
+			app.Logger.Error("Failed to close request body", "error", err)
 		}
 	}()
 
 	messages, err := app.getLatestMessages(limit, nil)
 	if err != nil {
-		slog.Error("Failed to load latest messages")
+		app.Logger.Error("Failed to load latest messages")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs", "GET").Inc()
 		return
 	}
 	messagesJSON, err := json.Marshal(messages)
 	if err != nil {
-		slog.Error("Failed Marshalize messages to JSON")
+		app.Logger.Error("Failed Marshalize messages to JSON")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs", "GET").Inc()
 		return
@@ -658,7 +657,7 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(messagesJSON)
 	if err != nil {
-		slog.Error("Failed to write response", "error", err)
+		app.Logger.Error("Failed to write response", "error", err)
 	}
 }
 
@@ -668,7 +667,7 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/msgs/{username}", "Invalid last parameter")
 			return
@@ -686,13 +685,13 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			slog.Error("Failed to close request body", "error", err)
+			app.Logger.Error("Failed to close request body", "error", err)
 		}
 	}()
 
 	userID, err := app.getUserId(username)
 	if err != nil {
-		slog.Error("Failed to get user ID", "username", username, "error", err)
+		app.Logger.Error("Failed to get user ID", "username", username, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs/{username}", "GET").Inc()
 		return
@@ -704,14 +703,14 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages, err := app.getLatestMessages(limit, &userID)
 	if err != nil {
-		slog.Error("Failed to load latest messages")
+		app.Logger.Error("Failed to load latest messages")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs/{username}", "GET").Inc()
 		return
 	}
 	messagesJSON, err := json.Marshal(messages)
 	if err != nil {
-		slog.Error("Failed Marshalize messages to JSON")
+		app.Logger.Error("Failed Marshalize messages to JSON")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs/{username}", "GET").Inc()
 		return
@@ -721,7 +720,7 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(messagesJSON)
 	if err != nil {
-		slog.Error("Failed to write response", "error", err)
+		app.Logger.Error("Failed to write response", "error", err)
 	}
 }
 
@@ -731,7 +730,7 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/msgs/{username}", "Invalid last parameter")
 			return
@@ -741,7 +740,7 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			slog.Error("Failed to close request body", "error", err)
+			app.Logger.Error("Failed to close request body", "error", err)
 		}
 	}()
 	var req struct {
@@ -751,7 +750,7 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := app.getUserByUsername(username)
 	if err != nil {
-		slog.Error("Failed to check existing user", "username", req.Username, "error", err)
+		app.Logger.Error("Failed to check existing user", "username", req.Username, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs/{username}", "POST").Inc()
 		return
@@ -764,7 +763,7 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		slog.Error("Failed to decode registration request", "error", err)
+		app.Logger.Error("Failed to decode registration request", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		InvalidRequestsTotal.WithLabelValues("/msgs/{username}", "Invalid request body")
 		return
@@ -778,7 +777,7 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = app.insertMessage(user.UserID, req.Content)
 	if err != nil {
-		slog.Error("Failed to add message to database", "error", err)
+		app.Logger.Error("Failed to add message to database", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/msgs/{username}", "GET").Inc()
 		return
@@ -793,7 +792,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	if latest != "" {
 		latestInt, err := strconv.Atoi(latest)
 		if err != nil {
-			slog.Error("Failed to convert latest to integer", "latest", latest, "error", err)
+			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
 			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
 			InvalidRequestsTotal.WithLabelValues("/register", "Invalid last parameter")
 			return
@@ -803,7 +802,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			slog.Error("Failed to close request body", "error", err)
+			app.Logger.Error("Failed to close request body", "error", err)
 		}
 	}()
 
@@ -815,7 +814,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		slog.Error("Failed to decode registration request", "error", err)
+		app.Logger.Error("Failed to decode registration request", "error", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		InvalidRequestsTotal.WithLabelValues("/register", "Invalid request body")
 		return
@@ -826,7 +825,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a username"})
 		if err != nil {
-			slog.Error("Failed to encode error response", "error", err)
+			app.Logger.Error("Failed to encode error response", "error", err)
 		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a username")
 		return
@@ -836,7 +835,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a valid email address"})
 		if err != nil {
-			slog.Error("Failed to encode error response", "error", err)
+			app.Logger.Error("Failed to encode error response", "error", err)
 		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a valid e-mail adress.")
 		return
@@ -846,7 +845,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "You have to enter a password"})
 		if err != nil {
-			slog.Error("Failed to encode error response", "error", err)
+			app.Logger.Error("Failed to encode error response", "error", err)
 		}
 		InvalidRequestsTotal.WithLabelValues("/register", "You have to enter a password")
 		return
@@ -854,7 +853,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	existingUser, err := app.getUserByUsername(req.Username)
 	if err != nil {
-		slog.Error("Failed to check existing user", "username", req.Username, "error", err)
+		app.Logger.Error("Failed to check existing user", "username", req.Username, "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/register", "POST").Inc()
 		return
@@ -864,7 +863,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		err := json.NewEncoder(w).Encode(map[string]interface{}{"status": http.StatusBadRequest, "error_msg": "The username is already taken"})
 		if err != nil {
-			slog.Error("Failed to encode error response", "error", err)
+			app.Logger.Error("Failed to encode error response", "error", err)
 		}
 		InvalidRequestsTotal.WithLabelValues("/register", "Username is already taken")
 		return
@@ -872,7 +871,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	pwHash, err := utils.GeneratePasswordHash(req.Password)
 	if err != nil {
-		slog.Error("Failed to hash password", "error", err)
+		app.Logger.Error("Failed to hash password", "error", err)
 		http.Error(w, "Failed to hash password", http.StatusBadRequest)
 		InvalidRequestsTotal.WithLabelValues("/register", "Failed to hash password")
 		return
@@ -880,7 +879,7 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = app.addUser(req.Username, req.Email, pwHash)
 	if err != nil {
-		slog.Error("Failed to add user", "username", req.Username, "error", err)
+		app.Logger.Error("Failed to add user", "username", req.Username, "error", err)
 		http.Error(w, "Failed to add user", http.StatusBadRequest)
 		InvalidRequestsTotal.WithLabelValues("/register", "Failed to add user")
 		return
