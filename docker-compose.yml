@@ -115,7 +115,26 @@ services:
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     networks:
+      - elk 
+    restart: unless-stopped
+
+  kibana:
+    build:
+      context: kibana/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    volumes:
+      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
+    ports:
+      - 5601:5601 # Kibana UI Dashboard
+    environment:
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-}
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    networks:
       - elk
+    depends_on:
+      - elasticsearch
     restart: unless-stopped
 
 networks:
@@ -129,3 +148,4 @@ volumes:
   db_data:
   elasticsearch:
   filebeat_data:
+  kibana:
