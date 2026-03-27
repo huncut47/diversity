@@ -80,7 +80,7 @@ services:
     build:
       context: setup/
       args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
+        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
     init: true
     volumes:
       - ./setup/entrypoint.sh:/entrypoint.sh:ro
@@ -104,7 +104,7 @@ services:
     build:
       context: elasticsearch/
       args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
+        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
     volumes:
       - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
       - elasticsearch:/usr/share/elasticsearch/data:Z
@@ -146,7 +146,7 @@ services:
     build:
       context: kibana/
       args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
+        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
     volumes:
       - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
     ports:
