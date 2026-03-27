@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -104,7 +103,7 @@ func (app *App) authorizationMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(403)
 			_, err := w.Write([]byte(`{"status": 403, "error_msg": "You are not authorized to use this resource!"}`))
 			if err != nil {
-				slog.Error("Failed to write response", "error", err)
+				app.Logger.Error("Failed to write response", "error", err)
 			}
 			return
 		}

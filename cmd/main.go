@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"minitwit/internal/models"
 	"minitwit/internal/utils"
@@ -41,6 +42,7 @@ var pages = map[string]*template.Template{
 }
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	var err error
 	db, err = connectDb()
 	if err != nil {
@@ -72,14 +74,15 @@ func main() {
 	}
 
 	app := &web.App{
-		DB:    db,
-		Store: store,
-		Pages: pages,
+		DB:     db,
+		Store:  store,
+		Pages:  pages,
+		Logger: logger,
 	}
 
 	r := app.NewRouter()
 
-	slog.Info("Starting server on :3000")
+	logger.Info("Starting server on :3000")
 	err = http.ListenAndServe(":3000", r)
 	if err != nil {
 		return

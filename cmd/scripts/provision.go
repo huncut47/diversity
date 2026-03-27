@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
@@ -11,6 +10,7 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx := context.Background()
 
 	// Token from environment variable
@@ -28,21 +28,21 @@ func main() {
 		Location:   &hcloud.Location{Name: "hel1"},
 	})
 	if err != nil {
-		log.Fatalf("error creating server: %s\n", err)
+		logger.Error("error creating server", slog.String("error", err.Error()))
 	}
 
 	err = client.Action.WaitFor(ctx, actionutil.AppendNext(result.Action, result.NextActions)...)
 	if err != nil {
-		log.Fatalf("error creating server: %s\n", err)
+		logger.Error("error creating server", slog.String("error", err.Error()))
 	}
 
 	server, _, err := client.Server.GetByID(ctx, result.Server.ID)
 	if err != nil {
-		log.Fatalf("error retrieving server: %s\n", err)
+		logger.Error("error retrieving server", slog.String("error", err.Error()))
 	}
 	if server != nil {
-		fmt.Printf("server is called %q\n", server.Name)
+		logger.Info("server is called", slog.String("name", server.Name))
 	} else {
-		fmt.Println("server not found")
+		logger.Info("server not found")
 	}
 }
