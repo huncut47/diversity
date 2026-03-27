@@ -15,7 +15,7 @@ services:
       - database
     restart: always
     ports:
-      - "8080:3000"
+      - "80:3000"
     volumes:
       - ./data:/app/data
 
@@ -83,9 +83,9 @@ services:
         ELASTIC_VERSION: ${ELASTIC_VERSION}
     init: true
     volumes:
-      - ./setup/entrypoint.sh:/entrypoint.sh:ro,Z
-      - ./setup/lib.sh:/lib.sh:ro,Z
-      - ./setup/roles:/roles:ro,Z
+      - ./setup/entrypoint.sh:/entrypoint.sh:ro
+      - ./setup/lib.sh:/lib.sh:ro
+      - ./setup/roles:/roles:ro
     environment:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
       LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
