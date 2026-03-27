@@ -1,4 +1,4 @@
-ARG ELASTIC_VERSION
+ARG ELASTIC_VERSION=8.12.2
 
 # https://www.docker.elastic.co/
 FROM docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}
