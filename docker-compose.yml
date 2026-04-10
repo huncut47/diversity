@@ -1,14 +1,4 @@
 services:
-  # caddy:
-  #   image: caddy:latest
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile
-
   web:
     build: .
     depends_on:
@@ -130,10 +120,10 @@ services:
     depends_on:
       - elasticsearch
     volumes:
-      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - filebeat_data:/usr/share/filebeat/data
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro # Use the filebeat.yml from the filebeat directory
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro # Mount the Docker container logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount the Docker socket to allow Filebeat to read container metadata
+      - filebeat_data:/usr/share/filebeat/data # Persist Filebeat data
     environment:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=elastic
