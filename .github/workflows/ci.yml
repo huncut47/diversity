@@ -113,4 +113,5 @@ jobs:
           script: |
             cd diversity
             git pull
+            docker build -t minitwit:latest .
             docker compose up -d --build
