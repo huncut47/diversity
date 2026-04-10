@@ -89,6 +89,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build minitwit image
+        run: docker build -t minitwit:latest .
+
       - name: Run UI tests
         run: docker compose --profile test up --build --abort-on-container-exit --exit-code-from uitest
 
