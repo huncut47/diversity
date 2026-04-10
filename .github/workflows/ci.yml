@@ -96,11 +96,11 @@ jobs:
         run: docker swarm init
 
       - name: Run UI tests
-        run: docker compose --profile test up --build --abort-on-container-exit --exit-code-from uitest
+        run: docker compose up web database uitest --build --abort-on-container-exit --exit-code-from uitest
 
       - name: Tear down
         if: always()
-        run: docker compose --profile test down -v
+        run: docker compose down web database uitest -v
 
   deploy:
     name: Deploy
