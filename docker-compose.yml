@@ -4,7 +4,8 @@ services:
   web:
     image: minitwit:latest
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     ports:
       - "80:3000"
     volumes:
@@ -32,6 +33,12 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minitwit -d minitwit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     deploy:
       replicas: 1
       restart_policy:
@@ -153,6 +160,7 @@ services:
     networks:
       - elk
   uitest:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.uitest
@@ -161,6 +169,8 @@ services:
       - database
     profiles:
       - test
+    networks:
+      - main
 
 
   setup:
