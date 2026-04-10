@@ -160,7 +160,6 @@ services:
 
   uitest:
     image: diversity-uitest:latest
-    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.uitest
