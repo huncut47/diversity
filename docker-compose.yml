@@ -214,10 +214,13 @@ services:
 networks:
   main:
     driver: overlay
+    attachable: true
   monitoring:
     driver: overlay
+    attachable: true
   elk:
     driver: overlay
+    attachable: true
     
 volumes:
   prometheus_data:
