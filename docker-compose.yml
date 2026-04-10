@@ -58,6 +58,8 @@ services:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
+    profiles:
+      - monitoring
     deploy:
       replicas: 1
       restart_policy:
@@ -76,6 +78,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    profiles:
+      - monitoring
     deploy:
       replicas: 1
       restart_policy:
@@ -95,6 +99,8 @@ services:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
+    profiles:
+      - monitoring
     deploy:
       mode: global
       restart_policy:
@@ -114,6 +120,8 @@ services:
       ES_JAVA_OPTS: -Xms512m -Xmx512m
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
       discovery.type: single-node
+    profiles:
+      - elk
     deploy:
       replicas: 1
       restart_policy:
@@ -136,6 +144,8 @@ services:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    profiles:
+      - elk
     deploy:
       mode: global
       restart_policy:
@@ -153,6 +163,8 @@ services:
       - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-}
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    profiles:
+      - elk
     deploy:
       replicas: 1
       restart_policy:

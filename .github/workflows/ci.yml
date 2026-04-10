@@ -117,4 +117,4 @@ jobs:
             cd diversity
             git pull
             docker build -t minitwit:latest .
-            docker compose up -d --build
+            docker compose --profile monitoring --profile elk up -d --build
