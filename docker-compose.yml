@@ -1,17 +1,29 @@
+version: "3.8"
+
 services:
   web:
-    build: .
+    image: minitwit:latest
     depends_on:
       - database
-    restart: always
     ports:
       - "80:3000"
     volumes:
       - ./data:/app/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+    networks:
+      - main
 
   database:
     image: postgres:16
-    restart: always
     environment:
       POSTGRES_USER: minitwit
       POSTGRES_PASSWORD: minitwit
@@ -20,18 +32,34 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - main
 
   prometheus:
     image: prom/prometheus:latest
-    restart: always
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana:latest
-    restart: always
     ports:
       - "3001:3000"
     volumes:
@@ -41,9 +69,15 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    networks:
+      - monitoring
+
   node-exporter:
     image: prom/node-exporter
-    restart: always
     ports:
       - "9100:9100"
     volumes:
@@ -54,107 +88,78 @@ services:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
-  uitest:
-    build:
-      context: .
-      dockerfile: Dockerfile.uitest
-    depends_on:
-      - web
-      - database
-    profiles:
-      - test
-
-  setup:
-    profiles:
-      - setup
-    build:
-      context: setup/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
-    init: true
-    volumes:
-      - ./setup/entrypoint.sh:/entrypoint.sh:ro
-      - ./setup/lib.sh:/lib.sh:ro
-      - ./setup/roles:/roles:ro
-    environment:
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
-      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
-      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-}
-      METRICBEAT_INTERNAL_PASSWORD: ${METRICBEAT_INTERNAL_PASSWORD:-}
-      FILEBEAT_INTERNAL_PASSWORD: ${FILEBEAT_INTERNAL_PASSWORD:-}
-      HEARTBEAT_INTERNAL_PASSWORD: ${HEARTBEAT_INTERNAL_PASSWORD:-}
-      MONITORING_INTERNAL_PASSWORD: ${MONITORING_INTERNAL_PASSWORD:-}
-      BEATS_SYSTEM_PASSWORD: ${BEATS_SYSTEM_PASSWORD:-}
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
     networks:
-      - elk
-    depends_on:
-      - elasticsearch
+      - monitoring
 
   elasticsearch:
-    build:
-      context: elasticsearch/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-8.12.2}
     volumes:
       - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
       - elasticsearch:/usr/share/elasticsearch/data:Z
     ports:
-      - 9200:9200 # Main Elasticsearch input
+      - "9200:9200"
     environment:
       node.name: elasticsearch
       ES_JAVA_OPTS: -Xms512m -Xmx512m
-      # Bootstrap password.
-      # Used to initialize the keystore during the initial startup of
-      # Elasticsearch. Ignored on subsequent runs.
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
-      # Use single node discovery in order to disable production mode and avoid bootstrap checks.
-      # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
     networks:
       - elk
-    restart: unless-stopped
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:8.12.2
+    image: docker.elastic.co/beats/filebeat:${ELASTIC_VERSION:-8.12.2}
     user: root
-    depends_on:
-      - elasticsearch
     volumes:
-      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro # Use the filebeat.yml from the filebeat directory
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro # Mount the Docker container logs
-      - /var/run/docker.sock:/var/run/docker.sock:ro # Mount the Docker socket to allow Filebeat to read container metadata
-      - filebeat_data:/usr/share/filebeat/data # Persist Filebeat data
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_data:/usr/share/filebeat/data
     environment:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
     networks:
       - elk
-    restart: unless-stopped
 
   kibana:
-    build:
-      context: kibana/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION:-8.12.2}
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION:-8.12.2}
     volumes:
       - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
     ports:
-      - 5601:5601 # Kibana UI Dashboard
+      - "5601:5601"
     environment:
       - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-}
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
     networks:
       - elk
-    depends_on:
-      - elasticsearch
-    restart: unless-stopped
 
 networks:
-  elk:
-    driver: bridge
   main:
+    driver: overlay
+  monitoring:
+    driver: overlay
+  elk:
+    driver: overlay
 
 volumes:
   prometheus_data:
