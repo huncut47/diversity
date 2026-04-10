@@ -120,4 +120,4 @@ jobs:
             cd diversity
             git pull
             docker build -t minitwit:latest .
-            docker stack deploy -c docker-compose.yml diversity
+            docker stack deploy --resolve-image=never -c docker-compose.yml diversity

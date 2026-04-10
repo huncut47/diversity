@@ -13,7 +13,6 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
-        max_attempts: 3
       update_config:
         parallelism: 1
         delay: 10s
@@ -42,7 +41,6 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
-        max_attempts: 3
       placement:
         constraints:
           - node.role == manager
