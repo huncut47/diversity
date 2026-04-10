@@ -92,6 +92,9 @@ jobs:
       - name: Build minitwit image
         run: docker build -t minitwit:latest .
 
+      - name: Init Docker Swarm
+        run: docker swarm init
+
       - name: Run UI tests
         run: docker compose --profile test up --build --abort-on-container-exit --exit-code-from uitest
 
@@ -117,4 +120,4 @@ jobs:
             cd diversity
             git pull
             docker build -t minitwit:latest .
-            docker compose --profile monitoring --profile elk up -d --build
+            docker stack deploy -c docker-compose.yml diversity

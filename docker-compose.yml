@@ -213,11 +213,11 @@ services:
 
 networks:
   main:
-    driver: bridge
+    driver: overlay
   monitoring:
-    driver: bridge
+    driver: overlay
   elk:
-    driver: bridge
+    driver: overlay
     
 volumes:
   prometheus_data:
