@@ -888,3 +888,16 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	NewRegisteredUsers.Inc()
 }
+
+func (app *App) HealthHandler(w http.ResponseWriter, r *http.Request) {
+	sqlDB, err := app.DB.DB()
+	if err != nil || sqlDB.Ping() != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"status":"db_down"}`))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
+}

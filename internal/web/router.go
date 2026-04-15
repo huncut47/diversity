@@ -37,6 +37,8 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}/unfollow", app.UnfollowUserHandler)
 	r.Get("/{username}", app.UserTimelineHandler)
 
+	r.Get("/health", app.HealthHandler)
+
 	// API routes with auth
 	r.Group(func(api chi.Router) {
 		api.Use(app.latestMiddleware)

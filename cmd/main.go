@@ -22,8 +22,8 @@ const DATABASE = "data/minitwit.db"
 var db *gorm.DB
 
 var store = sessions.NewCookieStore(
-	[]byte("12345678901234567890123456789012"),
-	[]byte("12345678901234567890123456789012"),
+	[]byte(os.Getenv("SESSION_AUTH_KEY")),
+	[]byte(os.Getenv("SESSION_ENCRYPTION_KEY")),
 )
 
 var funcMap = template.FuncMap{
@@ -90,7 +90,7 @@ func main() {
 }
 
 func connectDb() (*gorm.DB, error) {
-	dsn := "host=database user=minitwit password=minitwit dbname=minitwit port=5432 sslmode=disable TimeZone=UTC"
+	dsn := "host=database user=" + os.Getenv("POSTGRES_USER") + " password=" + os.Getenv("POSTGRES_PASSWORD") + " dbname=" + os.Getenv("POSTGRES_DB") + " port=5432 sslmode=disable TimeZone=UTC"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	return db, err
 }
