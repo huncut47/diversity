@@ -60,7 +60,7 @@ func main() {
 		}
 	}()
 
-	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
+	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{}, &models.AppState{})
 	if err != nil {
 		log.Fatal(err)
 	}

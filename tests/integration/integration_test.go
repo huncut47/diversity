@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"testing"
@@ -81,14 +82,16 @@ func (suite *MinitwitTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 	suite.sqlDB = sqlDB
 
-	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{})
+	err = db.AutoMigrate(&models.User{}, &models.Message{}, &models.Follower{}, &models.AppState{})
 	suite.Require().NoError(err)
 
 	suite.app = web.App{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DB: db,
 		Store: sessions.NewCookieStore(
-			[]byte("12345678901234567890123456789012"),
-			[]byte("12345678901234567890123456789012")),
+			[]byte(os.Getenv("SESSION_AUTH_KEY")),
+			[]byte(os.Getenv("SESSION_ENCRYPTION_KEY")),
+		),
 		Pages: map[string]*template.Template{
 			"register": loadTemplate("../../templates/layout.html", "../../templates/register.html"),
 			"login":    loadTemplate("../../templates/layout.html", "../../templates/login.html"),

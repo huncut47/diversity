@@ -452,18 +452,6 @@ func (app *App) getUserFromContext(r *http.Request) *models.User {
 
 func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/fllws/{username}", "Invalid Latest Parameter")
-			return
-		}
-		app.Latest = latestInt
-
-	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
 		no = "100"
@@ -512,17 +500,6 @@ func (app *App) FollowersHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/fllws/{username}", "Invalid Latest Parameter")
-			return
-		}
-		app.Latest = latestInt
-	}
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
@@ -605,24 +582,13 @@ func (app *App) FollowUserAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) LatestOperationHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.Latest})
+	err := json.NewEncoder(w).Encode(map[string]interface{}{"latest": app.GetLatest()})
 	if err != nil {
 		app.Logger.Error("Failed to encode latest response", "error", err)
 	}
 }
 
 func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/msgs", "Invalid last parameter")
-			return
-		}
-		app.Latest = latestInt
-	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
 		no = "100"
@@ -663,17 +629,6 @@ func (app *App) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/msgs/{username}", "Invalid last parameter")
-			return
-		}
-		app.Latest = latestInt
-	}
 	no := r.URL.Query().Get("no")
 	if no == "" {
 		no = "100"
@@ -726,17 +681,6 @@ func (app *App) GetUserMessagesHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/msgs/{username}", "Invalid last parameter")
-			return
-		}
-		app.Latest = latestInt
-	}
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {
@@ -788,17 +732,6 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
-	latest := r.URL.Query().Get("latest")
-	if latest != "" {
-		latestInt, err := strconv.Atoi(latest)
-		if err != nil {
-			app.Logger.Error("Failed to convert latest to integer", "latest", latest, "error", err)
-			http.Error(w, "Invalid latest parameter", http.StatusBadRequest)
-			InvalidRequestsTotal.WithLabelValues("/register", "Invalid last parameter")
-			return
-		}
-		app.Latest = latestInt
-	}
 
 	defer func() {
 		if err := r.Body.Close(); err != nil {

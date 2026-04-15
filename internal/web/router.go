@@ -91,7 +91,7 @@ func (app *App) latestMiddleware(next http.Handler) http.Handler {
 		if val != "" {
 			v, err := strconv.Atoi(val)
 			if err == nil {
-				app.Latest = v
+				app.SetLatest(v)
 			}
 		}
 		next.ServeHTTP(w, r)
