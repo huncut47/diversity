@@ -115,7 +115,6 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: itu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             cd diversity
             set -a
