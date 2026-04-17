@@ -39,6 +39,10 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}", app.UserTimelineHandler)
 
 	r.Get("/health", app.HealthHandler)
+	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("User-agent: *\nDisallow: /\n"))
+	})
 
 	// API routes with auth
 	r.Group(func(api chi.Router) {
