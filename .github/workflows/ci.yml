@@ -103,9 +103,9 @@ jobs:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpassword
           POSTGRES_DB: testdb
-          SESSION_AUTH_KEY: testsessionauthkey1234567890123
-          SESSION_ENCRYPTION_KEY: testsessionenckey1234567890123
-        run: docker compose up web database uitest --build --abort-on-container-exit --exit-code-from uitest
+          SESSION_AUTH_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          SESSION_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+        run: docker compose up web database uitest --scale web=1 --scale uitest=1 --build --abort-on-container-exit --exit-code-from uitest
 
       - name: Tear down
         if: always()
