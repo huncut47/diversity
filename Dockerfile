@@ -8,5 +8,6 @@ RUN CGO_ENABLED=0 go build -o main ./cmd/main.go
 FROM alpine:3.19
 WORKDIR /app
 COPY --from=builder /app/main .
+COPY --from=builder /app/templates ./templates
 EXPOSE 3000
 CMD ["./main"]
