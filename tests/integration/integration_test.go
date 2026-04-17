@@ -87,7 +87,7 @@ func (suite *MinitwitTestSuite) SetupTest() {
 
 	suite.app = web.App{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DB: db,
+		DB:     db,
 		Store: sessions.NewCookieStore(
 			[]byte(os.Getenv("SESSION_AUTH_KEY")),
 			[]byte(os.Getenv("SESSION_ENCRYPTION_KEY")),

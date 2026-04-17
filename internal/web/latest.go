@@ -7,7 +7,7 @@ const latestKey = "latest"
 func (app *App) GetLatest() int {
 	var s models.AppState
 	if err := app.DB.Where("key = ?", latestKey).First(&s).Error; err != nil {
-			return 0
+		return 0
 	}
 	return int(s.Value)
 }

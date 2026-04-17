@@ -732,7 +732,6 @@ func (app *App) PostUserMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
-
 	defer func() {
 		if err := r.Body.Close(); err != nil {
 			app.Logger.Error("Failed to close request body", "error", err)
@@ -827,10 +826,14 @@ func (app *App) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil || sqlDB.Ping() != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte(`{"status":"db_down"}`))
+		if _, err := w.Write([]byte(`{"status":"db_down"}`)); err != nil {
+			app.Logger.Error("Failed to write response", "error", err)
+		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+		app.Logger.Error("Failed to write response", "error", err)
+	}
 }
