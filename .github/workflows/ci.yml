@@ -76,7 +76,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      
+
       - name: Run integration tests
         run: go test ./tests/integration/...
 
@@ -113,7 +113,7 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_IP }}
-          username: minitwit_deploy
+          username: itu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
