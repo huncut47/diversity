@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"minitwit/internal/models"
 	"minitwit/internal/utils"
@@ -91,6 +92,13 @@ func main() {
 
 func connectDb() (*gorm.DB, error) {
 	dsn := "host=database user=" + os.Getenv("POSTGRES_USER") + " password=" + os.Getenv("POSTGRES_PASSWORD") + " dbname=" + os.Getenv("POSTGRES_DB") + " port=5432 sslmode=disable TimeZone=UTC"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	return db, err
+	for range 10 {
+		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err == nil {
+			return db, nil
+		}
+		log.Println("DB not ready, retrying in 3s...")
+		time.Sleep(3 * time.Second)
+	}
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
 }
