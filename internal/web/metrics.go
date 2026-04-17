@@ -2,11 +2,12 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/shirou/gopsutil/v4/cpu"
 )
 
 // User Mettrics
@@ -31,37 +32,49 @@ var InvalidRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "The total amount of 400-codes thrown",
 }, []string{"url", "error msg"})
 
-// System Metrics
 var (
-	cpuGauge = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "minitwit_cpu_load_percent",
-		Help: "Current load of the CPU in percent.",
-	})
+	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests processed.",
+	}, []string{"method", "path", "status"})
 
-	responseCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "minitwit_http_responses_total",
-		Help: "The count of HTTP responses sent.",
-	})
-
-	reqDurationHistogram = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "minitwit_request_duration_milliseconds",
-		Help: "Request duration distribution.",
-	})
+	httpRequestDurationMs = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "http_request_duration_milliseconds",
+		Help:    "Request duration distribution in milliseconds.",
+		Buckets: []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000},
+	}, []string{"method", "path"})
 )
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(code int) {
+	s.status = code
+	s.ResponseWriter.WriteHeader(code)
+}
 
 func metricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		percents, err := cpu.Percent(0, false)
-		if err == nil && len(percents) > 0 {
-			cpuGauge.Set(percents[0])
+		if r.URL.Path == "/metrics" || r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
 		}
 
-		next.ServeHTTP(w, r)
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
-		responseCounter.Inc()
-		elapsedMs := float64(time.Since(start).Milliseconds())
-		reqDurationHistogram.Observe(elapsedMs)
+		next.ServeHTTP(rec, r)
+
+		path := chi.RouteContext(r.Context()).RoutePattern()
+		if path == "" {
+			path = "unknown"
+		}
+
+		status := strconv.Itoa(rec.status)
+		httpRequestsTotal.WithLabelValues(r.Method, path, status).Inc()
+		httpRequestDurationMs.WithLabelValues(r.Method, path).
+			Observe(float64(time.Since(start).Milliseconds()))
 	})
 }

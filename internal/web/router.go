@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,7 +17,7 @@ const userContextKey contextKey = "user"
 
 func (app *App) NewRouter() chi.Router {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(app.structuredLogger)
 	r.Use(middleware.Recoverer)
 	r.Use(metricsMiddleware)
 	r.Use(app.authMiddleware)
@@ -36,6 +37,8 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/{username}/follow", app.FollowUserHandler)
 	r.Get("/{username}/unfollow", app.UnfollowUserHandler)
 	r.Get("/{username}", app.UserTimelineHandler)
+
+	r.Get("/health", app.HealthHandler)
 
 	// API routes with auth
 	r.Group(func(api chi.Router) {
@@ -89,10 +92,32 @@ func (app *App) latestMiddleware(next http.Handler) http.Handler {
 		if val != "" {
 			v, err := strconv.Atoi(val)
 			if err == nil {
-				app.Latest = v
+				app.SetLatest(v)
 			}
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *App) structuredLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+		next.ServeHTTP(rec, r)
+
+		path := chi.RouteContext(r.Context()).RoutePattern()
+		if path == "" {
+			path = r.URL.Path
+		}
+
+		app.Logger.Info("request",
+			"method", r.Method,
+			"route", path,
+			"status", rec.status,
+			"duration_ms", float64(time.Since(start).Milliseconds()),
+			"remote", r.RemoteAddr,
+		)
 	})
 }
 

@@ -1,8 +1,12 @@
-version: "3.8"
-
 services:
   web:
     image: minitwit:latest
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - SESSION_AUTH_KEY=${SESSION_AUTH_KEY}
+      - SESSION_ENCRYPTION_KEY=${SESSION_ENCRYPTION_KEY}
     restart: on-failure
     ports:
       - "80:3000"
@@ -16,22 +20,27 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: stop-first
+        order: start-first
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     networks:
       - main
+      - monitoring
 
   database:
     image: postgres:16
     environment:
-      POSTGRES_USER: minitwit
-      POSTGRES_PASSWORD: minitwit
-      POSTGRES_DB: minitwit
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U minitwit -d minitwit"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -49,8 +58,6 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
@@ -81,8 +88,6 @@ services:
 
   node-exporter:
     image: prom/node-exporter
-    ports:
-      - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -103,8 +108,6 @@ services:
     volumes:
       - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
       - elasticsearch:/usr/share/elasticsearch/data:Z
-    ports:
-      - "9200:9200"
     environment:
       node.name: elasticsearch
       ES_JAVA_OPTS: -Xms512m -Xmx512m
@@ -147,8 +150,6 @@ services:
       - "5601:5601"
     environment:
       - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-}
-      - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
     deploy:
       replicas: 1
       restart_policy:
@@ -194,7 +195,11 @@ services:
     depends_on:
       - elasticsearch
     deploy:
-      replicas: 0
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
 
 networks:
   main:
