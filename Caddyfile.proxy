@@ -1,3 +1,11 @@
 {$SERVER_NAME:localhost} {
     reverse_proxy web:3000
 }
+
+grafana.kulturbase.dk {
+    reverse_proxy grafana:3000
+}
+
+kibana.kulturbase.dk {
+    reverse_proxy kibana:5601
+}

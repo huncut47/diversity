@@ -18,6 +18,8 @@ services:
       - 8.8.8.8
     networks:
       - main
+      - monitoring
+      - elk
     deploy:
       replicas: 1
       update_config:
