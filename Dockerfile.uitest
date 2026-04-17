@@ -17,4 +17,4 @@ WORKDIR /tests
 COPY test_itu_minitwit_ui.py .
 
 # Waits for the container to be ready
-CMD ["sh", "-c", "until curl -sf http://web:3000/public; do echo 'Waiting for web...'; sleep 2; done && pytest test_itu_minitwit_ui.py -v"]
+CMD ["sh", "-c", "until curl -sf http://web:3000/health; do echo 'Waiting for web...'; sleep 2; done && pytest test_itu_minitwit_ui.py -v"]

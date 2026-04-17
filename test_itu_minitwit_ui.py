@@ -23,26 +23,21 @@ application can be started with `docker-compose up`.
 Now, the test itself can be executed via: `pytest test_itu_minitwit_ui.py`.
 """
 
+import os
 import psycopg2
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 
 
-GUI_URL = "http://web:3000/register"
-DB_HOST = "database"
-DB_PORT = 5432
-DB_NAME = "minitwit"
-DB_USER = "minitwit"
-DB_PASS = "minitwit"
-
-# FOR LOCAL TESTING
-# GUI_URL = "http://localhost:80/register"
-# DB_HOST = "localhost"
+GUI_URL = os.environ.get("GUI_URL", "http://web:3000/register")
+DB_HOST = os.environ.get("POSTGRES_HOST", "database")
+DB_PORT = int(os.environ.get("POSTGRES_PORT", 5432))
+DB_NAME = os.environ["POSTGRES_DB"]
+DB_USER = os.environ["POSTGRES_USER"]
+DB_PASS = os.environ["POSTGRES_PASSWORD"]
 
 
 

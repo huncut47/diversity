@@ -78,6 +78,9 @@ jobs:
           go-version-file: go.mod
 
       - name: Run integration tests
+        env:
+          SESSION_AUTH_KEY: ${{ secrets.SESSION_AUTH_KEY }}
+          SESSION_ENCRYPTION_KEY: ${{ secrets.SESSION_ENCRYPTION_KEY }}
         run: go test ./tests/integration/...
 
   uitest:
@@ -96,6 +99,12 @@ jobs:
         run: docker swarm init
 
       - name: Run UI tests
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+          SESSION_AUTH_KEY: testsessionauthkey1234567890123
+          SESSION_ENCRYPTION_KEY: testsessionenckey1234567890123
         run: docker compose up web database uitest --build --abort-on-container-exit --exit-code-from uitest
 
       - name: Tear down
