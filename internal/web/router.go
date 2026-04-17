@@ -41,7 +41,9 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/health", app.HealthHandler)
 	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("User-agent: *\nDisallow: /\n"))
+		if _, err := w.Write([]byte("User-agent: *\nDisallow: /\n")); err != nil {
+			app.Logger.Error("Failed to write robots.txt", "error", err)
+		}
 	})
 
 	// API routes with auth
