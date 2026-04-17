@@ -118,6 +118,9 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             cd diversity
+            set -a
+            source .env
+            set +a
             git pull
             docker build -t minitwit:latest .
             docker stack deploy --resolve-image=never -c docker-compose.yml diversity

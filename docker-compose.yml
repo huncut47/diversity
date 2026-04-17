@@ -10,8 +10,6 @@ services:
     restart: on-failure
     ports:
       - "80:3000"
-    volumes:
-      - ./data:/app/data
     deploy:
       replicas: 1
       restart_policy:
