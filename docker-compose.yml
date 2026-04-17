@@ -1,4 +1,30 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - SERVER_NAME=${SERVER_NAME:-kulturbase.dk}
+    volumes:
+      - type: bind
+        source: /home/itu/diversity/Caddyfile.proxy
+        target: /etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    networks:
+      - main
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
   web:
     image: minitwit:latest
     environment:
@@ -8,10 +34,8 @@ services:
       - SESSION_AUTH_KEY=${SESSION_AUTH_KEY}
       - SESSION_ENCRYPTION_KEY=${SESSION_ENCRYPTION_KEY}
     restart: on-failure
-    ports:
-      - "80:3000"
     deploy:
-      replicas: 1
+      replicas: 2
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -211,6 +235,8 @@ networks:
     attachable: true
 
 volumes:
+  caddy_data:
+  caddy_config:
   prometheus_data:
   grafana_data:
   db_data:
