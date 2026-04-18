@@ -9,5 +9,6 @@ FROM alpine:3.19
 WORKDIR /app
 COPY --from=builder /app/main .
 COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static ./static
 EXPOSE 3000
 CMD ["./main"]
