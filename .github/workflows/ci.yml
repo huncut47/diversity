@@ -132,3 +132,4 @@ jobs:
             git pull
             docker build -t minitwit:latest .
             docker stack deploy -c docker-compose.yml diversity
+            docker service update --force --image minitwit:latest diversity_web
