@@ -131,4 +131,4 @@ jobs:
             set +a
             git pull
             docker build -t minitwit:latest .
-            docker stack deploy --resolve-image=never -c docker-compose.yml diversity
+            docker stack deploy -c docker-compose.yml diversity

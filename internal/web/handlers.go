@@ -329,9 +329,11 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					page.Error = "Internal server error"
 				} else if !isAPI {
+					NewRegisteredUsers.Inc()
 					http.Redirect(w, r, "/login", http.StatusSeeOther)
 					return
 				} else {
+					NewRegisteredUsers.Inc()
 					w.WriteHeader(http.StatusOK)
 					return
 				}
@@ -374,10 +376,10 @@ func (app *App) AddMessageHandler(w http.ResponseWriter, r *http.Request) {
 	err := app.insertMessage(user.UserID, text)
 	if err != nil {
 		http.Error(w, "Failed to add message", http.StatusInternalServerError)
-		PostsTotal.Inc()
 		return
 	}
 
+	PostsTotal.Inc()
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

@@ -123,7 +123,7 @@
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
-          "expr": "up{job=\"minitwit\"}",
+          "expr": "min(up{job=\"minitwit\"})",
           "legendFormat": "web",
           "refId": "A"
         }
@@ -208,7 +208,7 @@
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
-          "expr": "user_posts_total",
+          "expr": "sum(user_posts_total)",
           "legendFormat": "Posts",
           "refId": "A"
         }
@@ -230,7 +230,7 @@
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
-          "expr": "new_registered_users",
+          "expr": "sum(new_registered_users)",
           "legendFormat": "Users",
           "refId": "A"
         }
