@@ -42,7 +42,7 @@ func (app *App) NewRouter() chi.Router {
 	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		if _, err := w.Write([]byte("User-agent: *\nDisallow: /\n")); err != nil {
-			app.Logger.Error("Failed to write robots.txt", "error", err)
+			app.Logger.Error("Failed to write robots.txt", "err", err)
 		}
 	})
 
@@ -135,7 +135,7 @@ func (app *App) authorizationMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(403)
 			_, err := w.Write([]byte(`{"status": 403, "error_msg": "You are not authorized to use this resource!"}`))
 			if err != nil {
-				app.Logger.Error("Failed to write response", "error", err)
+				app.Logger.Error("Failed to write response", "err", err)
 			}
 			return
 		}
