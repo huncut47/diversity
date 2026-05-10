@@ -9,7 +9,7 @@ services:
       - SERVER_NAME=${SERVER_NAME:-kulturbase.dk}
     volumes:
       - type: bind
-        source: /home/itu/diversity/Caddyfile.proxy
+        source: /home/deploy/diversity/Caddyfile.proxy
         target: /etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
