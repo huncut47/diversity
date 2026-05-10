@@ -36,11 +36,13 @@ func (app *App) TimelineHandler(w http.ResponseWriter, r *http.Request) {
 		app.Logger.Error("Failed to load timeline", "error", err)
 		InternalServerErrorsTotal.WithLabelValues("/", "GET").Inc()
 		http.Error(w, "Failed to load timeline", http.StatusInternalServerError)
+		return
 	}
 	page.Messages = messages
 
 	err = app.Pages["timeline"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
+		app.Logger.Error("Failed to render timeline template", "error", err)
 		InternalServerErrorsTotal.WithLabelValues("/", "GET").Inc()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -64,11 +66,14 @@ func (app *App) PublicTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		app.Logger.Error("Failed to load public timeline", "error", err)
 		http.Error(w, "Failed to load public timeline", http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/public", "GET").Inc()
+		return
 	}
 	page.Messages = messages
 
 	err = app.Pages["timeline"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
+		app.Logger.Error("Failed to render public timeline template", "error", err)
+		InternalServerErrorsTotal.WithLabelValues("/public", "GET").Inc()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -126,6 +131,7 @@ func (app *App) UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = app.Pages["timeline"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
+		app.Logger.Error("Failed to render user timeline template", "username", username, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 	}
@@ -156,12 +162,14 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 		user, err := app.getUserByUsername(username)
 		if err != nil {
+			app.Logger.Error("Failed to look up user during login", "username", username, "error", err)
 			page.Error = "Internal server error"
 		}
 		if user == nil || !utils.CheckPasswordHash(user.PwHash, password) {
 			page.Error = "Invalid username or password"
 			err = app.Pages["login"].ExecuteTemplate(w, "layout", page)
 			if err != nil {
+				app.Logger.Error("Failed to render login template", "error", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				InternalServerErrorsTotal.WithLabelValues("/login", "POST").Inc()
 			}
@@ -179,6 +187,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["user_id"] = user.UserID
 		err = session.Save(r, w)
 		if err != nil {
+			app.Logger.Error("Failed to save session", "user_id", user.UserID, "error", err)
 			http.Error(w, "Failed to save session", http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/{username}", "PUT").Inc()
 			return
@@ -190,6 +199,7 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := app.Pages["login"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
+		app.Logger.Error("Failed to render login template", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		InternalServerErrorsTotal.WithLabelValues("/{username}", "GET").Inc()
 	}
@@ -284,6 +294,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 				page.Error = "Passwords do not match"
 				err := app.Pages["register"].ExecuteTemplate(w, "layout", page)
 				if err != nil {
+					app.Logger.Error("Failed to render register template", "error", err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					InternalServerErrorsTotal.WithLabelValues("/register", "GET").Inc()
 				}
@@ -303,6 +314,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 		existingUser, err := app.getUserByUsername(username)
 		if err != nil {
+			app.Logger.Error("Failed to check existing user during registration", "username", username, "error", err)
 			page.Error = "Internal server error"
 		}
 		if existingUser != nil {
@@ -323,10 +335,12 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		if page.Error == "" {
 			pwHash, err := utils.GeneratePasswordHash(password)
 			if err != nil {
+				app.Logger.Error("Failed to hash password", "username", username, "error", err)
 				page.Error = "Internal server error"
 			} else {
 				err = app.addUser(username, email, pwHash)
 				if err != nil {
+					app.Logger.Error("Failed to add user", "username", username, "error", err)
 					page.Error = "Internal server error"
 				} else if !isAPI {
 					NewRegisteredUsers.Inc()
@@ -343,6 +357,7 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := app.Pages["register"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
+		app.Logger.Error("Failed to render register template", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -375,6 +390,8 @@ func (app *App) AddMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := app.insertMessage(user.UserID, text)
 	if err != nil {
+		app.Logger.Error("Failed to insert message", "user_id", user.UserID, "error", err)
+		InternalServerErrorsTotal.WithLabelValues("/add_message", "POST").Inc()
 		http.Error(w, "Failed to add message", http.StatusInternalServerError)
 		return
 	}
