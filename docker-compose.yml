@@ -157,7 +157,7 @@ services:
       - filebeat_data:/usr/share/filebeat/data
     environment:
       - ELASTICSEARCH_HOST=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_USERNAME=${ELASTIC_USER}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     deploy:
       mode: global
