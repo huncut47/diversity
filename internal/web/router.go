@@ -117,7 +117,8 @@ func (app *App) structuredLogger(next http.Handler) http.Handler {
 			path = r.URL.Path
 		}
 
-		app.Logger.Info("request",
+		app.Logger.Info(
+			"request",
 			"method", r.Method,
 			"route", path,
 			"status", rec.status,
