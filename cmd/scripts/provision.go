@@ -24,8 +24,8 @@ func main() {
 	result, _, err := client.Server.Create(ctx, hcloud.ServerCreateOpts{
 		Name:       "Twititu",
 		Image:      &hcloud.Image{Name: "ubuntu-24.0"},
-		ServerType: &hcloud.ServerType{Name: "cpx22"},
-		Location:   &hcloud.Location{Name: "hel1"},
+		ServerType: &hcloud.ServerType{Name: "cx23"},
+		Location:   &hcloud.Location{Name: "fsn1"},
 	})
 	if err != nil {
 		logger.Error("error creating server", slog.String("error", err.Error()))
