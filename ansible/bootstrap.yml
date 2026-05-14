@@ -1,0 +1,375 @@
+---
+- name: Bootstrap and secure a fresh server (Debian/Ubuntu)
+  hosts: servers
+  become: true
+  gather_facts: true
+
+  vars_prompt:
+    - name: username
+      prompt: "Enter the new admin username"
+      private: no
+
+    - name: ssh_key_path
+      prompt: "Enter the FULL path to your SSH public key"
+      private: no
+      default: "~/.ssh/id_ed25519.pub"
+
+  vars:
+    ssh_port: 22
+    ssh_pubkey: "{{ lookup('file', ssh_key_path) }}"
+
+    unattended_auto_reboot: false
+
+    packages:
+      - sudo
+      - git
+      - curl
+      - vim
+      - ufw
+      - fail2ban
+      - ca-certificates
+      - unattended-upgrades
+      - apt-listchanges
+      - gnupg
+      - lsb-release
+      - auditd
+      - aide
+      - bsd-mailx
+
+    packages_absent:
+      - telnet
+      - rsh-client
+      - rsh-redone-client
+      - talk
+      - talkd
+
+  pre_tasks:
+    - name: Stat the SSH public key on the control node
+      ansible.builtin.stat:
+        path: "{{ ssh_key_path | expanduser }}"
+      register: _key_stat
+      delegate_to: localhost
+      become: false
+
+    - name: Fail fast if the SSH public key file does not exist
+      ansible.builtin.fail:
+        msg: >
+          No SSH public key found at {{ ssh_key_path }}.
+          Create one with: ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
+      when: not _key_stat.stat.exists
+
+    - name: Fail fast if the SSH public key file is empty
+      ansible.builtin.fail:
+        msg: "SSH public key at {{ ssh_key_path }} is empty."
+      when: ssh_pubkey | trim == ""
+
+    - name: Validate admin username
+      ansible.builtin.assert:
+        that:
+          - username | trim | length > 0
+          - username | trim != "root"
+          - username | trim is match('^[a-z_][a-z0-9_-]{0,31}$')
+        fail_msg: "Invalid username '{{ username }}'. Must be a non-empty, non-root Unix username."
+
+    - name: Ensure this playbook is only used on Debian-family hosts
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: "This playbook only supports Debian/Ubuntu hosts."
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages to latest
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: true
+
+    - name: Remove unnecessary packages
+      ansible.builtin.apt:
+        name: "{{ packages_absent }}"
+        state: absent
+        purge: true
+
+    - name: Create admin user
+      ansible.builtin.user:
+        name: "{{ username }}"
+        shell: /bin/bash
+        groups: sudo
+        append: true
+        create_home: true
+
+    - name: Lock the root account password
+      ansible.builtin.user:
+        name: root
+        password_lock: true
+
+    - name: Install SSH authorized key for admin user
+      ansible.posix.authorized_key:
+        user: "{{ username }}"
+        key: "{{ ssh_pubkey }}"
+        state: present
+        exclusive: true
+
+    - name: Require password for sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        regexp: '^%sudo\s+'
+        line: "%sudo ALL=(ALL:ALL) ALL"
+        validate: "visudo -cf %s"
+
+    - name: Apply sysctl hardening settings
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+        sysctl_file: /etc/sysctl.d/99-hardening.conf
+      loop:
+        - { key: net.ipv4.conf.all.rp_filter, value: "1" }
+        - { key: net.ipv4.conf.default.rp_filter, value: "1" }
+        - { key: net.ipv4.conf.all.accept_redirects, value: "0" }
+        - { key: net.ipv4.conf.default.accept_redirects, value: "0" }
+        - { key: net.ipv6.conf.all.accept_redirects, value: "0" }
+        - { key: net.ipv6.conf.default.accept_redirects, value: "0" }
+        - { key: net.ipv4.conf.all.send_redirects, value: "0" }
+        - { key: net.ipv4.conf.default.send_redirects, value: "0" }
+        - { key: net.ipv4.icmp_echo_ignore_broadcasts, value: "1" }
+        - { key: net.ipv4.icmp_ignore_bogus_error_responses, value: "1" }
+        - { key: net.ipv4.tcp_syncookies, value: "1" }
+        - { key: net.ipv4.ip_forward, value: "0" }
+        - { key: net.ipv4.conf.all.accept_source_route, value: "0" }
+        - { key: net.ipv6.conf.all.accept_source_route, value: "0" }
+        - { key: net.ipv4.conf.all.log_martians, value: "1" }
+        - { key: fs.protected_hardlinks, value: "1" }
+        - { key: fs.protected_symlinks, value: "1" }
+        - { key: kernel.dmesg_restrict, value: "1" }
+        - { key: kernel.sysrq, value: "0" }
+        - { key: fs.suid_dumpable, value: "0" }
+        - { key: kernel.randomize_va_space, value: "2" }
+        - { key: kernel.yama.ptrace_scope, value: "1" }
+
+    - name: Ensure sshd_config.d exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        mode: "0755"
+
+    - name: Write SSH hardening config snippet
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-hardening.conf
+        mode: "0644"
+        content: |
+          Port {{ ssh_port }}
+
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          ChallengeResponseAuthentication no
+          PubkeyAuthentication yes
+          AuthenticationMethods publickey
+
+          AllowUsers {{ username }}
+
+          X11Forwarding no
+          AllowAgentForwarding no
+          PermitTunnel no
+
+          LoginGraceTime 30
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+          MaxAuthTries 3
+          MaxSessions 3
+          MaxStartups 10:30:60
+
+          PrintLastLog yes
+          Banner /etc/issue.net
+      notify: Reload SSH
+
+    - name: Set login warning banner
+      ansible.builtin.copy:
+        dest: /etc/issue.net
+        mode: "0644"
+        content: |
+          ******************************************************************
+          * Authorised access only. All activity may be monitored and      *
+          * recorded. By continuing you consent to this monitoring.        *
+          ******************************************************************
+
+    - name: Ensure SSH privilege separation directory exists
+      ansible.builtin.file:
+        path: /run/sshd
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Validate SSH configuration before reload
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: Reset UFW to clean state
+      community.general.ufw:
+        state: reset
+
+    - name: Set UFW default deny incoming policy
+      community.general.ufw:
+        policy: deny
+        direction: incoming
+
+    - name: Set UFW default allow outgoing policy
+      community.general.ufw:
+        policy: allow
+        direction: outgoing
+
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: Rate-limit SSH connections
+      community.general.ufw:
+        rule: limit
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Configure Fail2Ban jail.local
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.local
+        mode: "0644"
+        content: |
+          [DEFAULT]
+          bantime  = 24h
+          findtime = 10m
+          maxretry = 3
+          banaction = ufw
+
+          [sshd]
+          enabled  = true
+          port     = {{ ssh_port }}
+          filter   = sshd
+          logpath  = /var/log/auth.log
+          maxretry = 3
+          bantime  = 24h
+      notify: Restart Fail2Ban
+
+    - name: Enable and start Fail2Ban
+      ansible.builtin.service:
+        name: fail2ban
+        enabled: true
+        state: started
+
+    - name: Configure auditd rules
+      ansible.builtin.copy:
+        dest: /etc/audit/rules.d/99-hardening.rules
+        mode: "0640"
+        content: |
+          -D
+          -b 8192
+
+          -a always,exit -F arch=b64 -S open,openat -F exit=-EACCES -k access
+          -a always,exit -F arch=b64 -S open,openat -F exit=-EPERM -k access
+
+          -w /etc -p wa -k etc_changes
+          -w /etc/passwd -p wa -k identity
+          -w /etc/shadow -p wa -k identity
+          -w /etc/sudoers -p wa -k sudoers
+          -w /etc/ssh -p wa -k sshd_config
+          -w /usr/bin/sudo -p x -k sudo_usage
+      notify: Restart Auditd
+
+    - name: Enable and start auditd
+      ansible.builtin.service:
+        name: auditd
+        enabled: true
+        state: started
+
+    - name: Initialise AIDE database
+      ansible.builtin.command: aideinit
+      args:
+        creates: /var/lib/aide/aide.db.new
+      register: _aide_init
+
+    - name: Move AIDE database into place
+      ansible.builtin.command: mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      args:
+        creates: /var/lib/aide/aide.db
+        removes: /var/lib/aide/aide.db.new
+      when: _aide_init.changed
+
+    - name: Schedule daily AIDE integrity check via cron
+      ansible.builtin.cron:
+        name: "AIDE daily integrity check"
+        hour: "4"
+        minute: "30"
+        job: "/usr/bin/aide --check 2>&1 | mail -s 'AIDE report: {{ inventory_hostname }}' root"
+        user: root
+
+    - name: Enable periodic unattended upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        mode: "0644"
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          APT::Periodic::AutocleanInterval "7";
+
+    - name: Configure unattended-upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        mode: "0644"
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+              "${distro_id}:${distro_codename}-security";
+          };
+
+          Unattended-Upgrade::Automatic-Reboot "{{ unattended_auto_reboot | ternary('true', 'false') }}";
+          Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+          Unattended-Upgrade::Automatic-Reboot-WithUsers "false";
+
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+          Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+
+          Unattended-Upgrade::Mail "root";
+          Unattended-Upgrade::MailOnlyOnError "true";
+      notify: Restart Unattended Upgrades
+
+    - name: Enable unattended-upgrades service
+      ansible.builtin.service:
+        name: unattended-upgrades
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Reload SSH
+      ansible.builtin.service:
+        name: ssh
+        state: reloaded
+
+    - name: Restart Fail2Ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted
+
+    - name: Restart Unattended Upgrades
+      ansible.builtin.service:
+        name: unattended-upgrades
+        state: restarted
+
+    - name: Restart Auditd
+      ansible.builtin.service:
+        name: auditd
+        state: restarted
