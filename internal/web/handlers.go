@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	errFailedToSaveSession	= "Failed to save session"
-	errFailedToHashPassword	= "Failed to hash password"
-	errFailedToAddUser		= "Failed to add user"
-	pathPublic				= "/public"
+	errFailedToSaveSession  = "Failed to save session"
+	errFailedToHashPassword = "Failed to hash password"
+	errFailedToAddUser      = "Failed to add user"
+	pathPublic              = "/public"
 )
 
 type TimelinePageData struct {
