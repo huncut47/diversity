@@ -167,7 +167,7 @@
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
-        mode: "0755"
+        mode: "0750"
 
     - name: Add Docker GPG key
       ansible.builtin.shell: |
@@ -182,7 +182,7 @@
     - name: Add Docker repository
       ansible.builtin.copy:
         dest: /etc/apt/sources.list.d/docker.list
-        mode: "0644"
+        mode: "0640"
         content: |
           deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable
 
@@ -215,7 +215,7 @@
     - name: Harden Docker daemon configuration
       ansible.builtin.copy:
         dest: /etc/docker/daemon.json
-        mode: "0644"
+        mode: "0640"
         content: |
           {
             "icc": false,
@@ -234,12 +234,12 @@
       ansible.builtin.file:
         path: /etc/ssh/sshd_config.d
         state: directory
-        mode: "0755"
+        mode: "0750"
 
     - name: Write SSH hardening config snippet
       ansible.builtin.copy:
         dest: /etc/ssh/sshd_config.d/99-hardening.conf
-        mode: "0644"
+        mode: "0640"
         content: |
           Port {{ ssh_port }}
 
@@ -322,7 +322,7 @@
     - name: Configure Fail2Ban jail.local
       ansible.builtin.copy:
         dest: /etc/fail2ban/jail.local
-        mode: "0644"
+        mode: "0640"
         content: |
           [DEFAULT]
           bantime  = 24h
@@ -394,7 +394,7 @@
     - name: Enable periodic unattended upgrades
       ansible.builtin.copy:
         dest: /etc/apt/apt.conf.d/20auto-upgrades
-        mode: "0644"
+        mode: "0640"
         content: |
           APT::Periodic::Update-Package-Lists "1";
           APT::Periodic::Unattended-Upgrade "1";
