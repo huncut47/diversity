@@ -161,12 +161,12 @@
       ansible.builtin.file:
         path: /etc/ssh/sshd_config.d
         state: directory
-        mode: "0755"
+        mode: "0750"
 
     - name: Write SSH hardening config snippet
       ansible.builtin.copy:
         dest: /etc/ssh/sshd_config.d/99-hardening.conf
-        mode: "0644"
+        mode: "0640"
         content: |
           Port {{ ssh_port }}
 
@@ -197,7 +197,7 @@
     - name: Set login warning banner
       ansible.builtin.copy:
         dest: /etc/issue.net
-        mode: "0644"
+        mode: "0644"  # NOSONAR
         content: |
           ******************************************************************
           * Authorised access only. All activity may be monitored and      *
@@ -210,7 +210,7 @@
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0755"  # NOSONAR
 
     - name: Validate SSH configuration before reload
       ansible.builtin.command: sshd -t
@@ -249,7 +249,7 @@
     - name: Configure Fail2Ban jail.local
       ansible.builtin.copy:
         dest: /etc/fail2ban/jail.local
-        mode: "0644"
+        mode: "0640"
         content: |
           [DEFAULT]
           bantime  = 24h
@@ -321,7 +321,7 @@
     - name: Enable periodic unattended upgrades
       ansible.builtin.copy:
         dest: /etc/apt/apt.conf.d/20auto-upgrades
-        mode: "0644"
+        mode: "0640"
         content: |
           APT::Periodic::Update-Package-Lists "1";
           APT::Periodic::Unattended-Upgrade "1";
@@ -330,7 +330,7 @@
     - name: Configure unattended-upgrades
       ansible.builtin.copy:
         dest: /etc/apt/apt.conf.d/50unattended-upgrades
-        mode: "0644"
+        mode: "0640"
         content: |
           Unattended-Upgrade::Allowed-Origins {
               "${distro_id}:${distro_codename}-security";

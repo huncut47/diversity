@@ -270,7 +270,7 @@
     - name: Set login warning banner
       ansible.builtin.copy:
         dest: /etc/issue.net
-        mode: "0644"
+        mode: "0644"  # NOSONAR
         content: |
           ******************************************************************
           * Authorised access only. All activity may be monitored and      *
@@ -283,7 +283,7 @@
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0755"  # NOSONAR
 
     - name: Validate SSH configuration before reload
       ansible.builtin.command: sshd -t
