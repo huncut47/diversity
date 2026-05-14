@@ -32,7 +32,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.firefox.options import Options
 
 
-GUI_URL = os.environ.get("GUI_URL", "http://web:3000/register")
+GUI_URL = os.environ.get("GUI_URL", "http://web:3000/register") # NOSONAR: internal Docker network address
 DB_HOST = os.environ.get("POSTGRES_HOST", "database")
 DB_PORT = int(os.environ.get("POSTGRES_PORT", 5432))
 DB_NAME = os.environ["POSTGRES_DB"]
