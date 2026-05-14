@@ -12,6 +12,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const (
+	errFailedToSaveSession	= "Failed to save session"
+	errFailedToHashPassword	= "Failed to hash password"
+	errFailedToAddUser		= "Failed to add user"
+	pathPublic				= "/public"
+)
+
 type TimelinePageData struct {
 	User     *models.User
 	Messages []models.Message
@@ -27,7 +34,7 @@ func (app *App) TimelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if page.User == nil {
 		app.Logger.Info("No user in context, redirecting to public timeline")
-		http.Redirect(w, r, "/public", http.StatusSeeOther)
+		http.Redirect(w, r, pathPublic, http.StatusSeeOther)
 		return
 	}
 	app.Logger.Info("Loading timeline for user", "user_id", page.User.UserID, "username", page.User.Username)
@@ -65,7 +72,7 @@ func (app *App) PublicTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.Logger.Error("Failed to load public timeline", "err", err)
 		http.Error(w, "Failed to load public timeline", http.StatusInternalServerError)
-		InternalServerErrorsTotal.WithLabelValues("/public", "GET").Inc()
+		InternalServerErrorsTotal.WithLabelValues(pathPublic, "GET").Inc()
 		return
 	}
 	page.Messages = messages
@@ -73,7 +80,7 @@ func (app *App) PublicTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	err = app.Pages["timeline"].ExecuteTemplate(w, "layout", page)
 	if err != nil {
 		app.Logger.Error("Failed to render public timeline template", "err", err)
-		InternalServerErrorsTotal.WithLabelValues("/public", "GET").Inc()
+		InternalServerErrorsTotal.WithLabelValues(pathPublic, "GET").Inc()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -187,8 +194,8 @@ func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		session.Values["user_id"] = user.UserID
 		err = session.Save(r, w)
 		if err != nil {
-			app.Logger.Error("Failed to save session", "user_id", user.UserID, "err", err)
-			http.Error(w, "Failed to save session", http.StatusInternalServerError)
+			app.Logger.Error(errFailedToSaveSession, "user_id", user.UserID, "err", err)
+			http.Error(w, errFailedToSaveSession, http.StatusInternalServerError)
 			InternalServerErrorsTotal.WithLabelValues("/{username}", "PUT").Inc()
 			return
 		}
@@ -335,12 +342,12 @@ func (app *App) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		if page.Error == "" {
 			pwHash, err := utils.GeneratePasswordHash(password)
 			if err != nil {
-				app.Logger.Error("Failed to hash password", "username", username, "err", err)
+				app.Logger.Error(errFailedToHashPassword, "username", username, "err", err)
 				page.Error = "Internal server error"
 			} else {
 				err = app.addUser(username, email, pwHash)
 				if err != nil {
-					app.Logger.Error("Failed to add user", "username", username, "err", err)
+					app.Logger.Error(errFailedToAddUser, "username", username, "err", err)
 					page.Error = "Internal server error"
 				} else if !isAPI {
 					NewRegisteredUsers.Inc()
@@ -367,7 +374,7 @@ func (app *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	delete(session.Values, "user_id")
 	err := session.Save(r, w)
 	if err != nil {
-		app.Logger.Error("Failed to save session", "err", err)
+		app.Logger.Error(errFailedToSaveSession, "err", err)
 	}
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -822,17 +829,17 @@ func (app *App) RegisterAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 	pwHash, err := utils.GeneratePasswordHash(req.Password)
 	if err != nil {
-		app.Logger.Error("Failed to hash password", "err", err)
-		http.Error(w, "Failed to hash password", http.StatusBadRequest)
-		InvalidRequestsTotal.WithLabelValues("/register", "Failed to hash password")
+		app.Logger.Error(errFailedToHashPassword, "err", err)
+		http.Error(w, errFailedToHashPassword, http.StatusBadRequest)
+		InvalidRequestsTotal.WithLabelValues("/register", errFailedToHashPassword)
 		return
 	}
 
 	err = app.addUser(req.Username, req.Email, pwHash)
 	if err != nil {
-		app.Logger.Error("Failed to add user", "username", req.Username, "err", err)
-		http.Error(w, "Failed to add user", http.StatusBadRequest)
-		InvalidRequestsTotal.WithLabelValues("/register", "Failed to add user")
+		app.Logger.Error(errFailedToAddUser, "username", req.Username, "err", err)
+		http.Error(w, errFailedToAddUser, http.StatusBadRequest)
+		InvalidRequestsTotal.WithLabelValues("/register", errFailedToAddUser)
 		return
 	}
 
