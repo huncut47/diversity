@@ -403,7 +403,7 @@
     - name: Configure unattended-upgrades
       ansible.builtin.copy:
         dest: /etc/apt/apt.conf.d/50unattended-upgrades
-        mode: "0644"
+        mode: "0640"
         content: |
           Unattended-Upgrade::Allowed-Origins {
               "${distro_id}:${distro_codename}-security";
