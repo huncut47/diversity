@@ -69,7 +69,6 @@ func main() {
 		logger.Info("server not found")
 		return
 	}
-
 }
 
 func getSSHKeyByName(ctx context.Context, client *hcloud.Client, name string) (*hcloud.SSHKey, error) {
