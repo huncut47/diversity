@@ -131,7 +131,7 @@ func (app *App) structuredLogger(next http.Handler) http.Handler {
 
 func (app *App) authorizationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Basic"+os.Getenv("AUTH_KEY") {
+		if r.Header.Get("Authorization") != "Basic "+os.Getenv("AUTH_KEY") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(403)
 			_, err := w.Write([]byte(`{"status": 403, "error_msg": "You are not authorized to use this resource!"}`))
