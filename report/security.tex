@@ -34,8 +34,8 @@
     \item \textbf{R6}: Hetzner server is lost or compromised.
     \item \textbf{R7}: A developer accidentally commits \texttt{.env}.
     \item \textbf{R8}: A third-party GitHub Action used in CI is compromised and obtains \texttt{SSH\_PRIVATE\_KEY} / \texttt{SERVER\_IP}.
-    \item \textbf{R9}: Internal services expose host ports in \texttt{docker-compose.yml}.
-    \item \textbf{R10}: Short and simple passwords can be brute forced in seconds.
+    \item \textbf{R9}: Attacker can abuse the exposed internal services host ports in \texttt{docker-compose.yml}.
+    \item \textbf{R10}: Attacker brute-forces our short passwords in seconds.
 \end{itemize}
 
 \subsubsection{Risk Analysis}
@@ -55,14 +55,14 @@
 \midrule
 R1  & 4 & 4 & \textbf{16} \\
 R2  & 5 & 3 & \textbf{15} \\
+R9  & 5 & 3 & \textbf{15} \\
 R6  & 3 & 5 & \textbf{15} \\
 R4  & 4 & 3 & \textbf{12} \\
 R5  & 4 & 3 & \textbf{12} \\
 R10 & 3 & 4 & \textbf{12} \\
 R7  & 2 & 5 & \textbf{10} \\
 R8  & 2 & 5 & \textbf{10} \\
-R3  & 3 & 3 & \textbf{09} \\
-R9  & 5 & 3 & \textbf{09} \\
+R3  & 3 & 3 & \textbf{9} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -83,15 +83,18 @@ R9  & 5 & 3 & \textbf{09} \\
 \end{tabular}
 \end{center}
 
-\paragraph{Discussion}
+\paragraph{Addressing the issues}
 
-Both R9 and R10 have been addressed. We removed the \texttt{ports:} exposures for Grafana and Kibana from \texttt{docker-compose.yml}, so neither service exposes a host port anymore -- they remain reachable only through Caddy on \texttt{grafana.kulturbase.dk} and \texttt{kibana.kulturbase.dk}.
+\subparagraph{R2}
+We have moved the hardcoded simulator API token out of \texttt{internal/web/router.go} and into \texttt{.env}.
 
-We have also adressed R2 by moving the authorization token into \texttt{.env}.
+\subparagraph{R9}
+We removed the ports exposures for Grafana and Kibana from texttt{docker-compose.yml} -- the services remain reachable only through Caddy on \texttt{grafana.kulturbase.dk} and \texttt{kibana.kulturbase.dk}.
 
-For R10, we replaced every service credential in \texttt{.env} with random strings generated with \texttt{openssl}.
+\subparagraph{R10}
+For R10, we replaced every service credential in \texttt{.env} with new updated credentials random strings generated using \texttt{openssl}.
 
-We prioritised R9 and R10 because they were the most exposed and relatively cheap to fix.
+We prioritized R2 and R9 because while they were critical, they were also relatively straightforward to fix. R10 was tackled since it was also a simple fix that was long overdue.
 
 \subsection{Firewall}
 
