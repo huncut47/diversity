@@ -31,7 +31,7 @@ jobs:
       - name: Generate report
         run: |
           pandoc \
-            report/test1.md \
+            report/test1.tex \
             report/test2.md \
             --toc \
             --number-sections \
