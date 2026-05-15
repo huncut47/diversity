@@ -7,6 +7,24 @@ on:
     branches: [main]
 
 jobs:
+  report:
+    name: Build and save report
+    runs-on: ubuntu-latest
+    needs: [gofmt, golangci, hadolint, codeql, image_scan,deploy]
+    if : github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Generate report
+        run: |
+          pandoc \
+            report/test1.md \
+            report/test2.md \
+            --toc \
+            --number-sections \
+            --pdf-engine=xelatex \
+            -V geometry:margin=1in \
+            -o report/build/report.pdf
+
   gofmt:
     name: Go format check
     runs-on: ubuntu-latest
@@ -186,25 +204,4 @@ jobs:
             docker build -t minitwit:latest .
             docker stack deploy -c docker-compose.yml diversity
             docker service update --force --image minitwit:latest diversity_web
-  report:
-    name: Build and save report
-    runs-on: ubuntu-latest
-    needs: [gofmt, golangci, hadolint, codeql, image_scan,deploy]
-    if : github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Generate report
-        run: |
-          pandoc \
-            report/test1.md \
-            report/test2.md \
-            --toc \
-            --number-sections \
-            --pdf-engine=xelatex \
-            -V geometry:margin=1in \
-            -o report/build/report.pdf
-
-      - name: Upload report artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ci-report
+  

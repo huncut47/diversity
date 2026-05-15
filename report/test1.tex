@@ -1,0 +1,58 @@
+\section{Provisioning}
+
+\subsection{Hosting provider}
+
+We chose to rent a VPS from Hetzner due to its strong balance between affordability and performance. Hetzner is well known for offering cost-effective virtual private servers with reliable hardware specifications, making it a suitable choice for hosting our application within a limited budget.
+
+Another important factor was Hetzner's built-in firewall functionality. This allowed us to define firewall rules at the infrastructure level, meaning that unwanted traffic could be filtered before it ever reached the server hardware itself. Configuring firewall rules at this level improves security by reducing the server's direct exposure to unwanted traffic. After finishing the migration and setup of related applications, we updated our Go provisioning script to also create the firewall and attach it to the server.
+
+\subsection{VPS system/specifications}
+
+Converting the legacy system from Python to Go significantly improved performance, with faster request handling, lower CPU usage, and reduced memory consumption. This allowed the application to run efficiently on less powerful hardware while handling a similar workload. The biggest gains came when the server was dedicated solely to the compiled Go application, but due to budget constraints, all services had to share a single server.
+
+We chose a Hetzner CX23 server with 2 vCPUs, 4~GB RAM, and 40~GB storage. Multiple vCPUs were necessary to support concurrent applications, while 4~GB RAM ensured stable performance without heavy swap usage. The server also includes 20~TB monthly egress, offering strong cost efficiency at just \euro3.99 per month.
+
+\subsection{Provisioning the server}
+
+We chose to define our infrastructure provisioning logic as code rather than relying on Hetzner's GUI. Hetzner provides an official Go library that acts as a wrapper around their API, which we used to automate the provisioning of the server directly from our application code.
+
+Terraform was also considered as a potential solution for infrastructure provisioning. However, we ultimately preferred the simplicity and maintainability of using a single Go script. This decision aligned naturally with the broader migration of the main application from Python to Go, allowing the team to remain within a familiar ecosystem and programming language.
+
+Adopting Terraform or similar tools would have introduced additional complexity, requiring the team to learn a new syntax, tooling workflow, and infrastructure management paradigm. By using Go instead, we were able to reduce the learning curve, streamline development, and keep the infrastructure management process closely integrated with the rest of the application stack.
+
+\subsection{Bootstrapping}
+
+Server bootstrapping is a critical part of deployment, as misconfigurations can cause downtime, unstable services, and security vulnerabilities. To reduce these risks, we used Ansible for automated server provisioning and configuration.
+
+Ansible is widely adopted for infrastructure automation and offers an idempotent design, allowing playbooks to run repeatedly without creating inconsistencies. This ensures the server setup remains reproducible, maintainable, and consistently updated while reducing manual errors and improving security.
+
+The setup consists of two Ansible playbooks. The first handles server bootstrapping and security hardening, including system configuration, security measures, and deployment preparation.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|p{4cm}|p{9cm}|}
+\hline
+\textbf{Security Measure} & \textbf{Description} \\
+\hline
+Non-root administrative user & Creates a user without direct root access while granting \texttt{sudo} privileges. \\
+\hline
+System upgrades & Updates and upgrades server packages and system components. \\
+\hline
+Disable root login & Prevents direct root login to improve security. \\
+\hline
+System hardening & Applies Linux kernel, SSH, and network hardening settings to reduce attack surfaces and improve security. \\
+\hline
+UFW and Fail2Ban & Configures firewall rules and intrusion prevention mechanisms. \\
+\hline
+Auditd setup & Enables system auditing and security event logging. \\
+\hline
+Unattended upgrades & Configures automatic installation of security updates. \\
+\hline
+\end{tabular}
+\caption{Security hardening measures applied during server bootstrapping}
+\label{tab:security_measures}
+\end{table}
+
+The second playbook focuses specifically on installing and configuring Docker along with the Docker Compose plugin. Separating these responsibilities into distinct playbooks improves maintainability and makes the provisioning process easier to understand and manage.
+
+Detailed instructions for executing the playbooks are provided in the repository's \texttt{README} file. This documentation ensures that the setup process is reproducible and accessible for both current and future team members.
