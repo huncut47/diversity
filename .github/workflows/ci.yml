@@ -10,9 +10,24 @@ jobs:
   report:
     name: Build and save report
     runs-on: ubuntu-latest
-    if : github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
 
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pandoc + LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pandoc \
+            texlive-xetex \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            fonts-dejavu
+
+      - name: Create build directory
+        run: mkdir -p report/build
+
       - name: Generate report
         run: |
           pandoc \
