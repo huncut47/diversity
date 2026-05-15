@@ -1,0 +1,124 @@
+\section{Security}
+
+\subsection{Security Assessment}
+
+\subsubsection{Risk Identification}
+
+\paragraph{Assets}
+\begin{itemize}[noitemsep]
+    \item \textbf{Web application}
+    \item \textbf{User data} in PostgreSQL
+    \item \textbf{Server}
+    \item \textbf{Secrets}
+    \item \textbf{CI/CD pipeline}
+    \item \textbf{Monitoring stack}
+\end{itemize}
+
+\paragraph{Threat sources}
+\begin{itemize}[noitemsep]
+    \item External attackers
+    \item Malicious users
+    \item Supply-chain compromise (Go modules, base images, GitHub Actions)
+    \item Developer mistakes
+    \item Cloud / hardware failure
+\end{itemize}
+
+\paragraph{Risk scenarios}
+
+\begin{itemize}[noitemsep]
+    \item \textbf{R1}: Attacker brute-forces \texttt{POST /login} to take over user accounts.
+    \item \textbf{R2}: Attacker uses the hardcoded simulator API token in \texttt{internal/web/router.go} to post or read messages as any user.
+    \item \textbf{R3}: Attacker scrapes or floods the API (\texttt{/msgs?no=\ldots}) and takes down the server.
+    \item \textbf{R4}: Attacker performs CSRF against \texttt{/add\_message} or \texttt{/\{username\}/follow} -- no CSRF protection on form POSTs.
+    \item \textbf{R5}: Grafana is publicly readable (\texttt{GF\_AUTH\_ANONYMOUS\_ENABLED=true}) and Kibana is exposed on port 5601 -- information disclosure.
+    \item \textbf{R6}: Hetzner server is lost or compromised.
+    \item \textbf{R7}: A developer accidentally commits \texttt{.env}.
+    \item \textbf{R8}: A third-party GitHub Action used in CI is compromised and obtains \texttt{SSH\_PRIVATE\_KEY} / \texttt{SERVER\_IP}.
+    \item \textbf{R9}: Internal services expose host ports in \texttt{docker-compose.yml}.
+    \item \textbf{R10}: Short and simple passwords can be brute forced in seconds.
+\end{itemize}
+
+\subsubsection{Risk Analysis}
+
+\paragraph{Likelihood \& Impact}
+
+\subparagraph{Scales}
+\begin{itemize}[noitemsep]
+    \item \textbf{Likelihood:} 1 (Rare), 2, 3, 4, 5 (Almost certain)
+    \item \textbf{Impact:} 1 (Negligible), 2, 3, 4, 5 (Severe)
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Risk scenario} & \textbf{Likelihood} & \textbf{Impact} & \textbf{Score} \\
+\midrule
+R1  & 4 & 4 & \textbf{16} \\
+R2  & 5 & 3 & \textbf{15} \\
+R6  & 3 & 5 & \textbf{15} \\
+R4  & 4 & 3 & \textbf{12} \\
+R5  & 4 & 3 & \textbf{12} \\
+R10 & 3 & 4 & \textbf{12} \\
+R7  & 2 & 5 & \textbf{10} \\
+R8  & 2 & 5 & \textbf{10} \\
+R3  & 3 & 3 & \textbf{09} \\
+R9  & 5 & 3 & \textbf{09} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Risk Matrix}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c|ccccc}
+\multicolumn{1}{c}{} & \multicolumn{5}{c}{\textbf{Impact}} \\
+\textbf{Likelihood} & 1 & 2 & 3 & 4 & 5 \\
+\hline
+5 & --- & --- & R2, R9   & ---  & ---     \\
+4 & --- & --- & R4, R5   & R1   & ---     \\
+3 & --- & --- & R3       & R10  & R6      \\
+2 & --- & --- & ---      & ---  & R7, R8  \\
+1 & --- & --- & ---      & ---  & ---     \\
+\end{tabular}
+\end{center}
+
+\paragraph{Discussion}
+
+Both R9 and R10 have been addressed. We removed the \texttt{ports:} exposures for Grafana and Kibana from \texttt{docker-compose.yml}, so neither service exposes a host port anymore -- they remain reachable only through Caddy on \texttt{grafana.kulturbase.dk} and \texttt{kibana.kulturbase.dk}.
+
+We have also adressed R2 by moving the authorization token into \texttt{.env}.
+
+For R10, we replaced every service credential in \texttt{.env} with random strings generated with \texttt{openssl}.
+
+We prioritised R9 and R10 because they were the most exposed and relatively cheap to fix.
+
+\subsection{Firewall}
+
+We use both Hetzner's built-in firewall and \texttt{ufw} on the server. Only ports \texttt{80}, \texttt{443}, and \texttt{22} are open to incoming traffic.
+
+\subsection{TLS}
+
+We needed HTTPS in front of the app, and the lecture recommended using Nginx with Certbot. We chose Caddy instead because it combines both into a single tool: it automatically requests and renews Let's Encrypt certificates and redirects HTTP traffic to HTTPS. Our TLS setup is a single Caddyfile that routes \texttt{kulturbase.dk} and the \texttt{grafana.} and \texttt{kibana.} subdomains to their respective containers.
+
+\subsubsection{Container Hardening}
+
+\subsubsection{Not running as root}
+
+We have added a \texttt{USER} directive to our Dockerfile to prevent the images running as \texttt{root}. We have additionally run \texttt{docker scout} on our images which revealed no critical vulnerabilities. Our base images are up-to-date with versions \texttt{golang:1.25} and \texttt{alpine:3.23}, neither of which has any known vulnerabilities.
+
+\subsubsection{Image scan for vulnerabilities}
+
+The initial scan of our \texttt{minitwit} image using \texttt{docker scout cves --only-severity critical,high} revealed 4 vulnerabilities: 2 critical in the \texttt{github.com/jackc/pgx/v5} Go dependency and 2 high in the Alpine 3.19 image. The following fixes were applied:
+\begin{itemize}[noitemsep]
+    \item Updated \texttt{pgx/v5} from \texttt{v5.6.0} to \texttt{v5.9.2}
+    \item Updated \texttt{alpine:3.19} to \texttt{alpine:3.23}
+\end{itemize}
+
+A follow-up scan reports 0 critical and 0 high risk vulnerabilities.
+
+\subsection{Enhance your CI Pipelines with multiple security related static analysis tools}
+
+CI runs CodeQL on every push and PR to \texttt{main}. The deploy job depends on \texttt{codeql}, and branch protection requires the code scanning check to pass before merge, so any finding above a specific threshold blocks merge and deployment. 
+
+CI also runs Trivy on every push and PR to \texttt{main}: the \texttt{image\_scan} job builds the container and scans it for fixable HIGH/CRITICAL vulnerabilities in OS packages and Go modules. The deploy job depends on \texttt{image\_scan}, so any vulnerable image is blocked from deployment.

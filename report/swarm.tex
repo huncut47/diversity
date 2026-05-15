@@ -1,0 +1,10 @@
+\section{Swarm}
+As mentioned earlier in the report, we were limited by cost, which is why we opted to setup a non-HA Swarm cluster for our server. 
+
+The old CI/CD setup would tear down the entire compose application, including the database, monitoring services, and the application itself. This caused brief downtime for users and also left the application vulnerable to potential issues in newly updated Docker images. If a new image contained an error that prevented it from starting, the setup would be unable to revert to the previously working version of the application, resulting in extended downtime. This was far from ideal.
+
+Instead, we migrated the application stack to Docker Swarm to address these issues. Docker Swarm allows for individual container scaling and deployment configuration, meaning we can scale the main application to two containers. Docker Swarm places a load balancer in front of these containers and uses round-robin load balancing to distribute traffic between them.
+
+The CI/CD pipeline then informs the swarm cluster that a new image is available. Docker Swarm automatically replaces one container with the updated image and waits until the new container is stable and healthy before repeating the process for the remaining container. This process occurs without modifying the other applications in the stack, such as the database, monitoring, and logging services. As a result, downtime for end users is effectively eliminated when updating the application.
+
+% Add keywords to start and stop

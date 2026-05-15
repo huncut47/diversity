@@ -29,12 +29,12 @@ jobs:
       - name: Generate report
         run: |
           pandoc \
-            report/test1.tex \
-            report/test2.md \
+            report/main.tex \
             --toc \
             --number-sections \
             --pdf-engine=xelatex \
-            -V geometry:margin=1in \
+            --include-in-header=report/header.tex \
+            -V geometry:margin=0.5in \
             -o report/build/report.pdf
       - name: Commit report PDF
         run: |

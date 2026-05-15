@@ -1,0 +1,36 @@
+\documentclass{article}
+\usepackage{appendix}
+\usepackage[smartEllipses]{markdown}
+\usepackage{graphicx} % Required for inserting images
+
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{eurosym}
+\usepackage{caption}
+\captionsetup[table]{position=bottom}
+
+\begin{document}
+
+\title{DevOps, Software Evolution and Software Maintenance (MSc) \\ KSDSESM1KU \\ IT-University of Copenhagen}
+\author{Marek Joukl(jouk@itu.dk), Rafael Rohal (rafro@itu.dk) \\ Benjamin Storm Larsen (bsla@itu.dk), Malte Sauerland-Paulsen (saue@itu.dk)}
+\date{May 2026}
+\maketitle
+% \includegraphics[width=0.9\linewidth]{images/itu_logo.jpg} \par
+\newpage
+\input{report/introduction}
+\input{report/provision}
+\input{report/cicd}
+\input{report/monitoring}
+\input{report/swarm.tex}
+\input{report/security}
+\input{report/reflection.tex}
+\newpage
+\appendix{}
+\input{report/ai_ack.tex}
+
+\end{document}

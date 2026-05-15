@@ -1,0 +1,19 @@
+\section{AI Acknowledgement}
+
+As per ITU guidelines on the use of Generative Artificial Intelligence, this appendix specifies how generative AI was used in the development of our project.
+
+At the tail end of the project, it occurred to us that we did not properly credit the models used in our commits. Out of the $\sim180$ commits to the repository, artificial intelligence was used in about 40\%, as per the description in A.2
+
+%In the following commits, an LLM was used as described in subsection 
+
+\subsection{Which models were used?}
+This project has used Microsoft Copilot, ChatGPT-5, developed by OpenAI, and Claude.ai (Opus and Sonnet), developed by Anthropic.
+
+\subsection{How was AI used?}
+Apart from helping us format our \texttt{.tex} files, the large language models were mostly used for debugging and refactoring. The initial refactoring from Python to Go resulted in a lot of errors during the refactoring process, and the models were used to single out what problem had to be solved from the error codes. 
+
+Similarly, we used models to single out errors in our log files. When something broke in our deployment pipeline, it was not always easy to find the breaking point in a log file thousands of lines long. Using the models helped us track the breaking point of the deployment-deployment pipeline, and made pinpointing the exact cause for a quick fix much easier. 
+
+In cases where an LLM-generated code was used, we made sure to assess any code blocks before use, and kept our architecture and security in mind. When it comes to hindrances regarding AI usage, some LLM-generated code was clearly not up-to-standard and required extra review effort.
+
+All in all, the use of LLM's helped us cut the time debugging any failures, and freed up time to work on strengthening our operations and evolution efforts.

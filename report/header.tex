@@ -1,7 +1,26 @@
+\usepackage{graphicx}
 \usepackage{fancyhdr}
 
+% Title information
+\title{DevOps, Software Evolution and Software Maintenance (MSc) \\ Exam submission}
+\author{Marek Joukl, Rafael Rohal, Benjamin Storm, Malte Sauerland-Paulsen}
+\date{May 2026}
+
+% First page style
+\fancypagestyle{firstpage}{
+    \fancyhf{} % clear header/footer
+    \fancyhead[L]{DevOps, Software Evolution and Software Maintenance (MSc)}
+    \fancyfoot[C]{\thepage}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
+% Default style for all other pages
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\shortstack[l]{DevOps, Software Evolution\\and Software Maintenance (MSc)}}
-\fancyhead[R]{\small\shortstack[r]{Marek Joukl, Rafael Rohal,\\Benjamin Storm, Malte Sauerland-Paulsen}}
-\setlength{\headheight}{30pt}
+\fancyfoot[C]{\thepage}
+
+% Remove header line on normal pages
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
