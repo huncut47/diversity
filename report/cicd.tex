@@ -18,6 +18,14 @@ Workflows are located in \texttt{.github/workflows/}. The main pipeline, \texttt
     \item \texttt{image\_scan}: builds the production container image and runs Trivy on it to check for fixable HIGH/CRITICAL vulnerabilities in OS packages and Go dependencies
 \end{enumerate}
 
+The pipeline flow and diagram can be seen in figure \ref{fig:ci_pipeline}.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{report/images/cicd.png}
+    \caption{CI/CD pipeline flow diagram}
+    \label{fig:ci_pipeline}
+\end{figure}
+
 The \texttt{deploy} job additionally requires \texttt{github.ref == \texttt{refs/heads/main}} -- meaning that pull requests run the full pipeline but only merges into main actually deploy.
 
 \subsection{Deployment}
