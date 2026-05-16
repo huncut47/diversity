@@ -29,13 +29,10 @@
     \item \textbf{R1}: Attacker brute-forces \texttt{POST /login} to take over user accounts.
     \item \textbf{R2}: Attacker uses the hardcoded simulator API token in \texttt{internal/web/router.go} to post or read messages as any user.
     \item \textbf{R3}: Attacker scrapes or floods the API (\texttt{/msgs?no=\ldots}) and takes down the server.
-    \item \textbf{R4}: Attacker performs CSRF against \texttt{/add\_message} or \texttt{/\{username\}/follow} -- no CSRF protection on form POSTs.
-    \item \textbf{R5}: Grafana is publicly readable (\texttt{GF\_AUTH\_ANONYMOUS\_ENABLED=true}) and Kibana is exposed on port 5601 -- information disclosure.
-    \item \textbf{R6}: Hetzner server is lost or compromised.
-    \item \textbf{R7}: A developer accidentally commits \texttt{.env}.
-    \item \textbf{R8}: A third-party GitHub Action used in CI is compromised and obtains \texttt{SSH\_PRIVATE\_KEY} / \texttt{SERVER\_IP}.
-    \item \textbf{R9}: Attacker can abuse the exposed internal services host ports in \texttt{docker-compose.yml}.
-    \item \textbf{R10}: Attacker brute-forces our short passwords in seconds.
+    \item \textbf{R4}: Hetzner server is lost or compromised.
+    \item \textbf{R5}: A third-party GitHub Action used in CI is compromised and obtains \texttt{SSH\_PRIVATE\_KEY} / \texttt{SERVER\_IP}.
+    \item \textbf{R6}: Attacker can abuse the exposed internal services host ports in \texttt{docker-compose.yml}.
+    \item \textbf{R7}: Attacker brute-forces our short passwords.
 \end{itemize}
 
 \subsubsection{Risk Analysis}
@@ -55,13 +52,10 @@
 \midrule
 R1  & 4 & 4 & \textbf{16} \\
 R2  & 5 & 3 & \textbf{15} \\
-R9  & 5 & 3 & \textbf{15} \\
-R6  & 3 & 5 & \textbf{15} \\
-R4  & 4 & 3 & \textbf{12} \\
-R5  & 4 & 3 & \textbf{12} \\
-R10 & 3 & 4 & \textbf{12} \\
-R7  & 2 & 5 & \textbf{10} \\
-R8  & 2 & 5 & \textbf{10} \\
+R6  & 5 & 3 & \textbf{15} \\
+R4  & 3 & 5 & \textbf{15} \\
+R7 & 3 & 4 & \textbf{12} \\
+R5  & 2 & 5 & \textbf{10} \\
 R3  & 3 & 3 & \textbf{9} \\
 \bottomrule
 \end{tabular}
@@ -75,10 +69,10 @@ R3  & 3 & 3 & \textbf{9} \\
 \multicolumn{1}{c}{} & \multicolumn{5}{c}{\textbf{Impact}} \\
 \textbf{Likelihood} & 1 & 2 & 3 & 4 & 5 \\
 \hline
-5 & --- & --- & R2, R9   & ---  & ---     \\
-4 & --- & --- & R4, R5   & R1   & ---     \\
-3 & --- & --- & R3       & R10  & R6      \\
-2 & --- & --- & ---      & ---  & R7, R8  \\
+5 & --- & --- & R2, R6   & ---  & ---     \\
+4 & --- & --- & ---      & R1   & ---     \\
+3 & --- & --- & R3       & R7  & R4      \\
+2 & --- & --- & ---      & ---  & R5      \\
 1 & --- & --- & ---      & ---  & ---     \\
 \end{tabular}
 \end{center}
@@ -88,13 +82,13 @@ R3  & 3 & 3 & \textbf{9} \\
 \subparagraph{R2}
 We have moved the hardcoded simulator API token out of \texttt{internal/web/router.go} and into \texttt{.env}.
 
-\subparagraph{R9}
+\subparagraph{R6}
 We removed the ports exposures for Grafana and Kibana from texttt{docker-compose.yml} -- the services remain reachable only through Caddy on \texttt{grafana.kulturbase.dk} and \texttt{kibana.kulturbase.dk}.
 
-\subparagraph{R10}
+\subparagraph{R7}
 For R10, we replaced every service credential in \texttt{.env} with new updated credentials random strings generated using \texttt{openssl}.
 
-We prioritized R2 and R9 because while they were critical, they were also relatively straightforward to fix. R10 was tackled since it was also a simple fix that was long overdue.
+We prioritized R2 and R6 because while they were critical, they were also relatively straightforward to fix. R7 was tackled since it was also a simple fix that was long overdue.
 
 \subsection{Firewall}
 
