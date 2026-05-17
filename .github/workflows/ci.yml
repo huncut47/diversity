@@ -35,16 +35,16 @@ jobs:
             --pdf-engine=xelatex \
             --include-in-header=report/header.tex \
             -V geometry:margin=0.5in \
-            -o report/build/report.pdf
+            -o report/build/MSc_group_n.pdf
       - name: Commit report PDF
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add report/build/report.pdf
+          git add report/build/MSc_group_n.pdf
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update report.pdf [skip ci]"
+            git commit -m "chore: update MSc_group_n.pdf [skip ci]"
             git push
           fi
   gofmt:
