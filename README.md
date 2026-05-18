@@ -1,6 +1,14 @@
 ## Diversity: MiniTwit
 
-This app was refactored to a golang application.
+A Twitter-like microblogging service originally provided as a Python/Flask
+app for the _DevOps, Software Evolution and Software Maintenance_ course,
+refactored by our group into a Go application backed by PostgreSQL. It serves
+a web UI and a simulator-facing API, and runs in production as a Docker Swarm
+stack on a single Hetzner VPS.
+
+**Tech stack:** Go (chi router) + PostgreSQL (GORM) · Docker Swarm · Caddy
+(TLS) · Prometheus + Grafana (metrics) · Elasticsearch + Filebeat + Kibana
+(logs) · GitHub Actions (CI/CD) · Hetzner API + Ansible (provisioning).
 
 ## Provisioning and Deployment
 
@@ -48,21 +56,44 @@ Then run the following command to format the code:
 gofumpt -w .
 ```
 
-### Deployment
+### Initial server setup
 
-The deployment is done with the setup.sh script, which will be executed on the server after provisioning. It requires that docker and docker compose is installed on the server. It starts the building of the DockerFile for the webapp and it starts the docker compose.
+`setup.sh` performs the **one-time** initial bring-up on a freshly
+bootstrapped server (builds the image and deploys the stack):
 
 ```bash
 chmod +x ./setup.sh
-```
-
-To run the setup script, execute the following command:
-
-```bash
 ./setup.sh
 ```
 
-The webapp will be available at `http://<server_ip>:80` after the setup script has finished.
+The webapp is then available at `http://<server_ip>:80` (and via Caddy on
+the configured domain over HTTPS).
+
+### How changes reach production
+
+After the initial setup, **production deployment is fully automated through
+GitHub Actions**:
+
+1. Open a pull request against `main`.
+2. CI (`.github/workflows/ci.yml`) runs `gofmt`, `golangci-lint`,
+   `hadolint`, `integration_test`, `uitest`, `codeql`, and `image_scan`
+   (Trivy). Branch protection requires these to pass.
+3. Merge the PR into `main`.
+4. The `deploy` job SSHes in as the `deploy` user, pulls the latest code,
+   rebuilds the image, runs `docker stack deploy -c docker-compose.yml
+diversity`, and force-updates the `web` service. Swarm performs a
+   rolling update (one replica at a time, start-first).
+
+Releases are tagged automatically every Friday 09:00 UTC by
+`.github/workflows/weekly-release.yml`.
+
+### Observability
+
+- **Grafana** (metrics): `https://grafana.kulturbase.dk`
+- **Kibana** (logs): `https://kibana.kulturbase.dk`
+
+Both are reachable only through Caddy over HTTPS; dashboards are provisioned
+from `monitoring/` so they are reproducible on every deployment.
 
 ## Building and Running the Docker Swarm
 
