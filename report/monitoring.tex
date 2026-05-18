@@ -42,4 +42,6 @@ Container stdout from supporting services (Postgres, Caddy, Prometheus) is also 
 
 \subsection{Reflections}
 
-Choosing the EFK stack over Grafana + Loki was, in our opinion, the wrong call for a project this small. Loki would have kept everything under one Grafana frontend. The choice was still worthwhile as a learning exercise. We engaged with the industry-standard logging stack and encounter the kinds of real-world problems that come with it. It also cleanly separated concerns: Grafana shows whether something is wrong, Kibana explains what happened.
+Choosing the EFK stack over Grafana + Loki was, in our opinion, the wrong call for a project this small. Elasticsearch alone consumes a large amount of memory, and the stack was tricky to set up. For example, Filebeat refused to start until its configuration file was owned by root with the correct permissions, which broke our deployments until we fixed the file ownership manually on the server.
+
+Loki would have allowed us to keep everything under one Grafana frontend, removing Kibana as a separate system to configure and manage access to. Even though it introduced unnecessary complexity, the decision was still worth it as a learning experience, since we got to try the industry-standard logging stack and encounter the kinds of real-world problems that come with it.
