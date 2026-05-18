@@ -64,16 +64,22 @@ To run the setup script, execute the following command:
 
 The webapp will be available at `http://<server_ip>:80` after the setup script has finished.
 
-## Building and Running the Docker Container
+## Building and Running the Docker Swarm
 
-First build the image:
+Setup the docker swarm on the server by running the following command:
 
 ```bash
-docker build -t minitwit .
+docker swarm init
 ```
 
-Then run the container and map the port:
+Then build the docker image for the webapp:
 
 ```bash
-docker run -p 3000:3000 minitwit
+docker build -t minitwit-webapp:latest .
+```
+
+Then deploy the stack with the following command:
+
+```bash
+docker stack deploy -c docker-compose.yml minitwit
 ```
