@@ -1,10 +1,9 @@
 \section{Swarm}
-As mentioned earlier in the report, we were limited by cost, which is why we opted to setup a non-HA Swarm cluster for our server. 
+As mentioned earlier, cost constraints meant we chose a non-HA Swarm cluster setup.
 
-The old CI/CD setup would tear down the entire compose application, including the database, monitoring services, and the application itself. This caused brief downtime for users and also left the application vulnerable to potential issues in newly updated Docker images. If a new image contained an error that prevented it from starting, the setup would be unable to revert to the previously working version of the application, resulting in extended downtime. This was far from ideal.
+The previous CI/CD setup redeployed the entire Docker Compose stack, including the database, monitoring services, and application, causing brief downtime during updates. It also lacked rollback resilience: if a new Docker image failed to start, the application could not recover to the previous working version, potentially causing extended downtime.
+To solve this, we migrated the application to Docker Swarm. Swarm supports individual container scaling and deployment control, allowing the main application to run across two containers behind a built-in round-robin load balancer.
 
-Instead, we migrated the application stack to Docker Swarm to address these issues. Docker Swarm allows for individual container scaling and deployment configuration, meaning we can scale the main application to two containers. Docker Swarm places a load balancer in front of these containers and uses round-robin load balancing to distribute traffic between them.
-
-The CI/CD pipeline then informs the swarm cluster that a new image is available. Docker Swarm automatically replaces one container with the updated image and waits until the new container is stable and healthy before repeating the process for the remaining container. This process occurs without modifying the other applications in the stack, such as the database, monitoring, and logging services. As a result, downtime for end users is effectively eliminated when updating the application.
+When a new image is deployed, the CI/CD pipeline notifies the Swarm cluster. Swarm then updates containers one at a time, waiting for each new container to become healthy before replacing the next. Other services, such as the database and monitoring stack, remain untouched during the process. This effectively eliminates downtime for end users during deployments.
 
 % Add keywords to start and stop
