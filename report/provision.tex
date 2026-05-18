@@ -2,9 +2,7 @@
 
 \subsection{Hosting provider}
 
-We chose to rent a VPS from Hetzner due to its strong balance between affordability and performance. Hetzner is well known for offering cost-effective virtual private servers with reliable hardware specifications, making it a suitable choice for hosting our application within a limited budget.
-
-Hetzner’s built-in firewall was another key factor. It lets us apply firewall rules at the infrastructure level, filtering unwanted traffic before it reaches the server. After completing the migration and application setup, we updated our Go provisioning script to automatically create and attach the firewall to each server.
+We chose to rent a VPS from Hetzner due to its strong balance between affordability and performance. Hetzner is well known provider and it's built-in firewall was another key factor. It lets us apply firewall rules at the infrastructure level, filtering unwanted traffic before it reaches the server. After completing the migration and application setup, we updated our Go provisioning script to automatically create and attach the firewall to each server.
 
 \subsection{VPS}
 
@@ -22,7 +20,7 @@ Terraform was also considered as a potential solution for infrastructure provisi
 
 Server bootstrapping is a critical part of deployment, as misconfigurations can cause downtime, unstable services, and security vulnerabilities. To reduce these risks, we used Ansible for automated server provisioning and configuration.
 
-Ansible is widely adopted for infrastructure automation and offers an idempotent design, allowing playbooks to run repeatedly without creating inconsistencies. This ensures the server setup remains reproducible, maintainable, and consistently updated while reducing manual errors and improving security.
+Ansible's idempotent design lets playbooks run repeatedly without drift, keeping the setup reproducible and reducing manual error.
 
 The setup consists of two Ansible playbooks. The first handles server bootstrapping and security hardening, including system configuration, security measures, and deployment preparation.
 

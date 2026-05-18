@@ -6,7 +6,7 @@ The following security assessment was produced as part of Session 11.
 
 \subsubsection{Risk Identification}
 
-\paragraph{Assets}
+\textbf{Assets}
 \begin{itemize}[noitemsep]
     \item \textbf{Web application}
     \item \textbf{User data} in PostgreSQL
@@ -16,7 +16,7 @@ The following security assessment was produced as part of Session 11.
     \item \textbf{Monitoring stack}
 \end{itemize}
 
-\paragraph{Threat sources}
+\textbf{Threat sources}
 \begin{itemize}[noitemsep]
     \item External attackers
     \item Malicious users
@@ -25,7 +25,7 @@ The following security assessment was produced as part of Session 11.
     \item Cloud / hardware failure
 \end{itemize}
 
-\paragraph{Risk scenarios}
+\textbf{Risk scenarios}
 
 \begin{itemize}[noitemsep]
     \item \textbf{R1}: Attacker brute-forces \texttt{POST /login} to take over user accounts.
@@ -39,9 +39,9 @@ The following security assessment was produced as part of Session 11.
 
 \subsubsection{Risk Analysis}
 
-\paragraph{Likelihood \& Impact}
+\textbf{Likelihood \& Impact}
 
-\subparagraph{Scales}
+\textbf{Scales}
 \begin{itemize}[noitemsep]
     \item \textbf{Likelihood:} 1 (Rare), 2, 3, 4, 5 (Almost certain)
     \item \textbf{Impact:} 1 (Negligible), 2, 3, 4, 5 (Severe)
@@ -63,7 +63,7 @@ R3  & 3 & 3 & \textbf{9} \\
 \end{tabular}
 \end{center}
 
-\paragraph{Risk Matrix}
+\textbf{Risk Matrix}
 
 \begin{center}
 \renewcommand{\arraystretch}{1.3}
@@ -79,15 +79,15 @@ R3  & 3 & 3 & \textbf{9} \\
 \end{tabular}
 \end{center}
 
-\paragraph{Addressing the issues}
+\textbf{Addressing the issues}
 
-\subparagraph{R2}
+\textbf{R2}
 We have moved the hardcoded simulator API token out of \texttt{internal/web/router.go} and into \texttt{.env}.
 
-\subparagraph{R6}
+\textbf{R6}
 We removed the ports exposures for Grafana and Kibana from texttt{docker-compose.yml} -- the services remain reachable only through Caddy on \texttt{grafana.kulturbase.dk} and \texttt{kibana.kulturbase.dk}.
 
-\subparagraph{R7}
+\textbf{R7}
 For R10, we replaced every service credential in \texttt{.env} with new updated credentials random strings generated using \texttt{openssl}.
 
 We prioritized R2 and R6 because while they were critical, they were also relatively straightforward to fix. R7 was tackled since it was also a simple fix that was long overdue.
@@ -100,13 +100,13 @@ We use both Hetzner's built-in firewall and \texttt{ufw} on the server. Only por
 
 We needed HTTPS in front of the app, and the lecture recommended using Nginx with Certbot. We chose Caddy instead because it combines both into a single tool: it automatically requests and renews Let's Encrypt certificates and redirects HTTP traffic to HTTPS. Our TLS setup is a single Caddyfile that routes \texttt{kulturbase.dk} and the \texttt{grafana.} and \texttt{kibana.} subdomains to their respective containers.
 
-\subsubsection{Container Hardening}
+\subsection{Container Hardening}
 
-\subsubsection{Not running as root}
+\textbf{Not running as root}
 
 We have added a \texttt{USER} directive to our Dockerfile to prevent the images running as \texttt{root}. We have additionally run \texttt{docker scout} on our images which revealed no critical vulnerabilities. Our base images are up-to-date with versions \texttt{golang:1.25} and \texttt{alpine:3.23}, neither of which has any known vulnerabilities.
 
-\subsubsection{Image scan for vulnerabilities}
+\textbf{Image scan for vulnerabilities}
 
 The initial scan of our \texttt{minitwit} image using \texttt{docker scout cves --only-severity critical,high} revealed 4 vulnerabilities: 2 critical in the \texttt{github.com/jackc/pgx/v5} Go dependency and 2 high in the Alpine 3.19 image. The following fixes were applied:
 \begin{itemize}[noitemsep]
